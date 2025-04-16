@@ -63,7 +63,7 @@ try:
     tree = ET.parse(server_xml)
     root = tree.getroot()
 
-    # Check for insecure CredentialHandler
+    # Check for Realm elements
     realm = (root.find(".//Realm[@className='org.apache.catalina.realm.UserDatabaseRealm']") or
              root.find(".//Realm[@className='org.apache.catalina.realm.MemoryRealm']"))
     if realm is None:
