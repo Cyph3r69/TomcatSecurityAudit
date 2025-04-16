@@ -1,0 +1,8 @@
+PS C:\Users\Admin\Desktop> .\CheckTomcatConfig.ps1
+Checking Apache Tomcat configuration security...
+Detected Tomcat version 9.0 at C:\Program Files (x86)\Apache Software Foundation\Tomcat 9.0\conf
+- No users defined in tomcat-users.xml
+- Status: Compliant (no passwords to evaluate)
+Overall Configuration: Secure (no vulnerabilities detected)
+Audit completed
+PS C:\Users\Admin\Desktop>
