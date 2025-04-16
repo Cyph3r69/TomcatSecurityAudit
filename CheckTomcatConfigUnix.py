@@ -1,5 +1,6 @@
+```python
 #!/usr/bin/env python3
-# check_tomcat_config.py
+# CheckTomcatConfigUnix.py
 # Audits Tomcat configuration for password security and compliance (7.0, 8.5, 9.0)
 
 import os
@@ -9,7 +10,7 @@ import xml.etree.ElementTree as ET
 import sys
 
 # Log setup
-log_file = os.path.expanduser("~/TestTomcatConfig.log")  # Changed to user home directory
+log_file = os.path.expanduser("~/TestTomcatConfig.log")  # User home directory for logging
 
 def write_log(message):
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -193,3 +194,4 @@ for user in users:
 
 write_log(f"Overall Configuration: {'Secure' if is_secure else 'Insecure'}")
 write_log("Audit completed")
+```
