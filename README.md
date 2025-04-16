@@ -3,14 +3,14 @@
 ## Executive Summary
 
 The Tomcat Configuration Security Auditor provides tools to evaluate Apache Tomcat user authentication configurations for security and compliance with NIST 800-53 IA-5 and CIS Tomcat Benchmark standards. The repository includes two sets of scripts:
-- **Unix (Linux/macOS)**: `test_config.py` and `check_tomcat_config.py`, written in Python 3.
-- **Windows**: `test_config.ps1` and `CheckTomcatConfig.ps1`, written in PowerShell.
+- **Unix (Linux/macOS)**: `test_config_unix.py` and `CheckTomcatConfigUnix.pst`, written in Python 3.
+- **Windows**: `test_config.ps1` and `CheckTomcatConfigWin.ps1`, written in PowerShell.
 
 Both sets audit Tomcat 7.0, 8.5, and 9.0, ensuring consistent functionality across platforms.
 
 ### Features
-- **Automated Testing**: `test_config.py`/`test_config.ps1` runs comprehensive tests across multiple password types and server configurations, modifying `tomcat-users.xml` and `server.xml` to simulate scenarios and validating with the respective checking script.
-- **Manual Auditing**: `check_tomcat_config.py`/`CheckTomcatConfig.ps1` analyzes existing configurations, reporting password types, credential handlers, and compliance status.
+- **Automated Testing**: `test_config_unix.py`/`test_config.ps1` runs comprehensive tests across multiple password types and server configurations, modifying `tomcat-users.xml` and `server.xml` to simulate scenarios and validating with the respective checking script.
+- **Manual Auditing**: `CheckTomcatConfigUnix.pst`/`CheckTomcatConfigWin.ps1` analyzes existing configurations, reporting password types, credential handlers, and compliance status.
 - **Detailed Reporting**: Outputs include password type, security status (secure/insecure), checked parameters (e.g., algorithm, iterations, salt length), and compliance details with recommendations.
 - **Backup and Restore**: Automatically backs up configuration files before testing and restores them afterward, using platform-appropriate paths (`/tmp` for Unix, `%LOCALAPPDATA%\Temp` for Windows).
 - **Logging**: Saves detailed logs to `/tmp/TestTomcatConfig.log` (Unix) or `%LOCALAPPDATA%\Temp\TestTomcatConfig.log` (Windows).
@@ -49,7 +49,7 @@ The scripts identify the following password types in `tomcat-users.xml`:
 
 ## Overview
 
-This repository provides tools to audit Apache Tomcat configurations for secure password storage and compliance with industry standards. The Python scripts (`test_config.py`, `check_tomcat_config.py`) are designed for Unix systems (Linux/macOS), while the PowerShell scripts (`test_config.ps1`, `CheckTomcatConfig.ps1`) target Windows. Both sets support Tomcat 7.0, 8.5, and 9.0, making them ideal for system administrators and security professionals managing cross-platform Tomcat deployments.
+This repository provides tools to audit Apache Tomcat configurations for secure password storage and compliance with industry standards. The Python scripts (`test_config_unix.py`, `CheckTomcatConfigUnix.pst`) are designed for Unix systems (Linux/macOS), while the PowerShell scripts (`test_config.ps1`, `CheckTomcatConfigWin.ps1`) target Windows. Both sets support Tomcat 7.0, 8.5, and 9.0, making them ideal for system administrators and security professionals managing cross-platform Tomcat deployments.
 
 ## Prerequisites
 
@@ -73,10 +73,10 @@ This repository provides tools to audit Apache Tomcat configurations for secure 
    git clone <repository-url> /home/user/tomcat-audit
    cd /home/user/tomcat-audit
    ```
-   Or save `test_config.py` and `check_tomcat_config.py` to `/home/user/tomcat-audit`.
+   Or save `test_config_unix.py` and `CheckTomcatConfigUnix.pst` to `/home/user/tomcat-audit`.
 2. **Set Permissions**:
    ```bash
-   chmod +x test_config.py check_tomcat_config.py
+   chmod +x test_config_unix.py CheckTomcatConfigUnix.pst
    ```
 3. **Install Python** (if not present):
    ```bash
@@ -95,7 +95,7 @@ This repository provides tools to audit Apache Tomcat configurations for secure 
    git clone <repository-url> C:\Users\Admin\Desktop\tomcat-audit
    cd C:\Users\Admin\Desktop\tomcat-audit
    ```
-   Or save `test_config.ps1` and `CheckTomcatConfig.ps1` to `C:\Users\Admin\Desktop`.
+   Or save `test_config.ps1` and `CheckTomcatConfigWin.ps1` to `C:\Users\Admin\Desktop`.
 2. **Set Execution Policy** (if needed):
    ```powershell
    Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
@@ -109,13 +109,13 @@ This repository provides tools to audit Apache Tomcat configurations for secure 
 
 ## Usage
 
-### Unix: Automated Testing with `test_config.py`
+### Unix: Automated Testing with `test_config_unix.py`
 Tests multiple password types and credential handlers, restoring original configurations.
 
 - **Command**:
   ```bash
   cd /home/user/tomcat-audit
-  ./test_config.py
+  ./test_config_unix.py
   ```
 - **Example Output** (Tomcat 9.0):
   ```
@@ -130,12 +130,12 @@ Tests multiple password types and credential handlers, restoring original config
   - Tomcat 8.5: 35 tests (5 server configs × 7 password types).
   - Tomcat 9.0: 42 tests (6 server configs × 7 password types).
 
-### Unix: Manual Auditing with `check_tomcat_config.py`
+### Unix: Manual Auditing with `CheckTomcatConfigUnix.pst`
 Analyzes the current configuration for security and compliance.
 
 - **Command**:
   ```bash
-  ./check_tomcat_config.py
+  ./CheckTomcatConfigUnix.pst
   ```
 - **Example Output** (secure):
   ```
@@ -182,12 +182,12 @@ Tests multiple password types and credential handlers, restoring original config
   - Tomcat 8.5: 35 tests.
   - Tomcat 9.0: 42 tests.
 
-### Windows: Manual Auditing with `CheckTomcatConfig.ps1`
+### Windows: Manual Auditing with `CheckTomcatConfigWin.ps1`
 Analyzes the current configuration for security and compliance.
 
 - **Command**:
   ```powershell
-  .\CheckTomcatConfig.ps1
+  .\CheckTomcatConfigWin.ps1
   ```
 - **Example Output** (secure):
   ```
