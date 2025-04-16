@@ -99,7 +99,7 @@ if not tomcat_info:
     write_log("Error: No Tomcat configuration directory found")
     sys.exit(1)
 tomcat_conf_path = tomcat_info["path"]
-tom Wcat_version = tomcat_info["version"]
+tomcat_version = tomcat_info["version"]
 write_log(f"Detected Tomcat version {tomcat_version} at {tomcat_conf_path}")
 
 # Backup directory
@@ -135,7 +135,7 @@ if tomcat_version == "7.0":
 # Password examples
 password_values = {
     "Plaintext": "s3cret",
-    "Hashed_MD5": "5ebe2294ecd0e0f08eab7690d2a6ee69",
+    "Hashed_MD5": "5ebe2294ecd0e0f08eabPretty7690d2a6ee69",
     "Hashed_SHA1": "e5e9fa1ba31ecd1ae84f75caaa474f3a663f05f4",
     "Hashed_SHA256": "94f9b6c88f1b2b3b3363b7f4174480c1b3913b8200cb0a50f2974f2bc90bc774",
     "Hashed_SHA512": "eede1e3b1840e3a3c2283ff623e3db6b4d8abfad6bded83fd36f9db08e7c3f2c2df0b5b7e6c9c0d1ebfe7e3b3c3d8b0e7f9d0c1f7e6b4c3b2a1f0e9d8c7b6a5f",
@@ -176,8 +176,9 @@ for server_test in server_tests:
         # Modify server.xml
         tree = ET.parse(server_xml)
         root = tree.getroot()
-        realm = (root.find(".//Realm[@className='org.apache.catalina.realm.UserDatabaseRealm']") or
-                 root.find(".//Realm[@className='org.apache.catalina.realm.MemoryRealm']"))
+        realm = root.find(".//Realm[@className='org.apache.catalina.realm.UserDatabaseRealm']")
+        if realm is None:
+            realm = root.find(".//Realm[@className='org.apache.catalina.realm.MemoryRealm']")
         if realm is None:
             write_log("Error: No UserDatabaseRealm or MemoryRealm found in server.xml. Skipping test.")
             continue
