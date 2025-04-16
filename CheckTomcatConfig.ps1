@@ -50,8 +50,8 @@ if (-not (Test-Path $serverXmlPath) -or -not (Test-Path $usersXmlPath)) {
     exit
 }
 
-$serverXml = [xml](Get-Content $serverXmlPath)
-$usersXml = [xml](Get-Content $usersXmlPath)
+$serverXml = [xml](Get-Content $serverXmlPath -Encoding UTF8)
+$usersXml = [xml](Get-Content $usersXmlPath -Encoding UTF8)
 
 # Analyze CredentialHandler
 $realm = $serverXml.SelectSingleNode("//Realm[@className='org.apache.catalina.realm.UserDatabaseRealm']")
@@ -63,7 +63,7 @@ if ($tomcatVersion -eq "8.5" -and $credentialHandler -and $credentialHandler.cla
 }
 
 # Analyze users and passwords
-foreach ($user in $usersXml.tomcat-users.user) {
+foreach ($user in $usersXml.'tomcat-users'.user) {
     $username = $user.username
     $password = $user.password
 
