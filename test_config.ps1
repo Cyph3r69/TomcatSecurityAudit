@@ -142,7 +142,7 @@ foreach ($serverTest in $serverTests) {
             $user = $users.CreateElement("user")
             $user.SetAttribute("username", "testuser")
             $user.SetAttribute("roles", "manager")
-            $users.tomcat-users.AppendChild($user)
+            $users.'tomcat-users'.AppendChild($user)
         }
         $user.SetAttribute("password", $passwordValues[$passwordTest])
         $users.Save($usersXml)
