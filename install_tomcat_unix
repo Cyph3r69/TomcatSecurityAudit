@@ -2,7 +2,7 @@
 
 # install.sh
 # Installs Apache Tomcat 9.0 on Kali Linux for use with Tomcat Configuration Security Auditor
-# Run as root or with sudo: sudo ./install.sh
+# Run as root or with sudo: sudo ./install_tomcat_unix.sh
 
 # Exit on error
 set -e
