@@ -63,10 +63,12 @@ try:
     tree = ET.parse(server_xml)
     root = tree.getroot()
 
-    # Example check: Look for insecure CredentialHandler
-    realm = root.find(".//Realm[@className='org.apache.catalina.realm.UserDatabaseRealm']") or \
-            root.find(".//Realm[@className='org.apache.catalina.realm.MemoryRealm']")
-    if realm:
+    # Check for insecure CredentialHandler
+    realm = (root.find(".//Realm[@className='org.apache.catalina.realm.UserDatabaseRealm']") or
+             root.find(".//Realm[@className='org.apache.catalina.realm.MemoryRealm']"))
+    if realm is None:
+        write_log("Warning: No UserDatabaseRealm or MemoryRealm found in server.xml")
+    else:
         handler = realm.find("CredentialHandler")
         if handler is None:
             write_log("Warning: No CredentialHandler defined in Realm")
@@ -88,6 +90,8 @@ try:
     users_tree = ET.parse(users_xml)
     users_root = users_tree.getroot()
     users = users_root.findall(".//user")
+    if not users:
+        write_log("Warning: No users defined in tomcat-users.xml")
     for user in users:
         username = user.get("username")
         password = user.get("password")
