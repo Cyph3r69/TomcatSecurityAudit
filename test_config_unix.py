@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-# test_config.py
-# Tests check_tomcat_config.py for various Tomcat configurations (7.0, 8.5, 9.0)
+# test_config_unix.py
+# Tests CheckTomcatConfigUnix.py for various Tomcat configurations (7.0, 8.5, 9.0)
 
 import os
 import shutil
@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 # Log setup
-log_file = os.path.expanduser("~/TestTomcatConfig.log")  # Changed to user home directory
+log_file = os.path.expanduser("~/TestTomcatConfig.log")  # User home directory for logging
 
 def write_log(message):
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -23,13 +23,13 @@ def write_log(message):
         print(f"Warning: Cannot write to {log_file}. Logging to console only.")
     print(log_message)
 
-write_log("Starting tests for check_tomcat_config.py...")
+write_log("Starting tests for CheckTomcatConfigUnix.py...")
 
 # Verify script exists
-if not os.path.exists("./check_tomcat_config.py"):
-    write_log("Error: check_tomcat_config.py not found")
+if not os.path.exists("./CheckTomcatConfigUnix.py"):
+    write_log("Error: CheckTomcatConfigUnix.py not found")
     sys.exit(1)
-write_log("Verified file exists: ./check_tomcat_config.py")
+write_log("Verified file exists: ./CheckTomcatConfigUnix.py")
 
 # Clear existing log
 try:
@@ -166,8 +166,8 @@ for server_test in server_tests:
         user.set("password", password_values[password_test])
         users_tree.write(users_xml, encoding="utf-8", xml_declaration=True)
 
-        # Run check_tomcat_config.py
-        result = subprocess.run(["python3", "./check_tomcat_config.py"], capture_output=True, text=True)
+        # Run CheckTomcatConfigUnix.py
+        result = subprocess.run(["python3", "./CheckTomcatConfigUnix.py"], capture_output=True, text=True)
         output = result.stdout + result.stderr
         write_log(f"Test output: {output.strip()}")
 
