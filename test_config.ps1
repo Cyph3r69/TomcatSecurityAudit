@@ -109,8 +109,8 @@ $serverConfigs = @{
 # Backup original files
 $serverXml = Join-Path $tomcatConfPath "server.xml"
 $usersXml = Join-Path $tomcatConfPath "tomcat-users.xml"
-Copy-Item $serverXml "$backupDir\server.xml.bak"
-Copy-Item $usersXml "$backupDir\tomcat-users.xml.bak"
+Copy-Item $serverXml "$backupDir\server.xml.bak" -Force
+Copy-Item $usersXml "$backupDir\tomcat-users.xml.bak" -Force
 
 # Run tests
 foreach ($serverTest in $serverTests) {
@@ -121,7 +121,7 @@ foreach ($serverTest in $serverTests) {
         Write-Log "Running test: ${tomcatVersion}_${serverTest}_${passwordTest} for Tomcat $tomcatVersion"
 
         # Modify server.xml
-        $xml = [xml](Get-Content $serverXml)
+        $xml = [xml](Get-Content $serverXml -Encoding UTF8)
         $realm = $xml.SelectSingleNode("//Realm[@className='org.apache.catalina.realm.UserDatabaseRealm']")
         if ($serverTest -eq "NoCredentialHandler") {
             if ($realm.CredentialHandler) { $realm.RemoveChild($realm.CredentialHandler) }
@@ -136,7 +136,7 @@ foreach ($serverTest in $serverTests) {
         $xml.Save($serverXml)
 
         # Modify tomcat-users.xml
-        $users = [xml](Get-Content $usersXml)
+        $users = [xml](Get-Content $usersXml -Encoding UTF8)
         $user = $users.SelectSingleNode("//user[@username='testuser']")
         if (-not $user) {
             $user = $users.CreateElement("user")
@@ -145,7 +145,13 @@ foreach ($serverTest in $serverTests) {
             $users.'tomcat-users'.AppendChild($user)
         }
         $user.SetAttribute("password", $passwordValues[$passwordTest])
-        $users.Save($usersXml)
+        # Save with explicit UTF-8 encoding
+        $writerSettings = New-Object System.Xml.XmlWriterSettings
+        $writerSettings.Encoding = [System.Text.Encoding]::UTF8
+        $writerSettings.Indent = $true
+        $writer = [System.Xml.XmlWriter]::Create($usersXml, $writerSettings)
+        $users.Save($writer)
+        $writer.Close()
 
         # Run CheckTomcatConfig.ps1
         $output = & ".\CheckTomcatConfig.ps1" 2>&1
