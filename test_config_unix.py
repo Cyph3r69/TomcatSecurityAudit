@@ -11,13 +11,16 @@ import sys
 from pathlib import Path
 
 # Log setup
-log_file = "/tmp/TestTomcatConfig.log"
+log_file = os.path.expanduser("~/TestTomcatConfig.log")  # Changed to user home directory
 
 def write_log(message):
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     log_message = f"[{timestamp}] {message}"
-    with open(log_file, "a") as f:
-        f.write(log_message + "\n")
+    try:
+        with open(log_file, "a") as f:
+            f.write(log_message + "\n")
+    except PermissionError:
+        print(f"Warning: Cannot write to {log_file}. Logging to console only.")
     print(log_message)
 
 write_log("Starting tests for check_tomcat_config.py...")
@@ -29,9 +32,12 @@ if not os.path.exists("./check_tomcat_config.py"):
 write_log("Verified file exists: ./check_tomcat_config.py")
 
 # Clear existing log
-if os.path.exists(log_file):
-    open(log_file, "w").close()
-    write_log(f"Cleared existing log file: {log_file}")
+try:
+    if os.path.exists(log_file):
+        open(log_file, "w").close()
+        write_log(f"Cleared existing log file: {log_file}")
+except PermissionError:
+    write_log(f"Warning: Cannot clear {log_file}. Proceeding with existing log.")
 
 # Function to detect Tomcat path and version
 def get_tomcat_config_path():
