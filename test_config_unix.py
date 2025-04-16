@@ -83,4 +83,59 @@ def detect_tomcat_version(tomcat_home):
                     elif version.startswith("8."):
                         return "8.5"
                     elif version.startswith("9."):
-                        return "
+                        return "9.0"
+    # Fallback based on directory name
+    if "tomcat7" in tomcat_home:
+        return "7.0"
+    elif "tomcat8" in tomcat_home:
+        return "8.5"
+    elif "tomcat9" in tomcat_home:
+        return "9.0"
+    return "Unknown"
+
+# Detect Tomcat installation
+tomcat_info = get_tomcat_config_path()
+if not tomcat_info:
+    write_log("Error: No Tomcat configuration directory found")
+    sys.exit(1)
+tomcat_conf_path = tomcat_info["path"]
+tom Wcat_version = tomcat_info["version"]
+write_log(f"Detected Tomcat version {tomcat_version} at {tomcat_conf_path}")
+
+# Backup directory
+backup_dir = "/tmp/TomcatConfigBackup"
+os.makedirs(backup_dir, exist_ok=True)
+
+# Define test cases
+password_tests = [
+    "Plaintext",
+    "Hashed_MD5",
+    "Hashed_SHA1",
+    "Hashed_SHA256",
+    "Hashed_SHA512",
+    "Salted_MD5",
+    "Salted_PBKDF2"
+]
+
+server_tests = [
+    "NoCredentialHandler",
+    "MessageDigestCredentialHandler_MD5",
+    "MessageDigestCredentialHandler_SHA256"
+]
+if tomcat_version in ["8.5", "9.0"]:
+    server_tests.extend([
+        "MessageDigestCredentialHandler_SHA512",
+        "NestedCredentialHandler"
+    ])
+if tomcat_version == "9.0":
+    server_tests.append("SecretKeyCredentialHandler_PBKDF2")
+if tomcat_version == "7.0":
+    write_log("Limiting tests for Tomcat 7.0: Excluding SHA-512, NestedCredentialHandler, and SecretKeyCredentialHandler")
+
+# Password examples
+password_values = {
+    "Plaintext": "s3cret",
+    "Hashed_MD5": "5ebe2294ecd0e0f08eab7690d2a6ee69",
+    "Hashed_SHA1": "e5e9fa1ba31ecd1ae84f75caaa474f3a663f05f4",
+    "Hashed_SHA256": "94f9b6c88f1b2b3b3363b7f4174480c1b3913b8200cb0a50f2974f2bc90bc774",
+    "Hashed_SHA512": "eede1e3b1840e
