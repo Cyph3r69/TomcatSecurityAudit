@@ -41,6 +41,16 @@ except PermissionError:
 
 # Function to detect Tomcat path and version
 def get_tomcat_config_path():
+    # Check CATALINA_HOME environment variable first
+    catalina_home = os.getenv("CATALINA_HOME")
+    if catalina_home:
+        conf_path = os.path.join(catalina_home, "conf")
+        if os.path.exists(conf_path) and os.path.exists(os.path.join(conf_path, "server.xml")):
+            version = detect_tomcat_version(catalina_home)
+            write_log(f"Found Tomcat at CATALINA_HOME: {catalina_home}, version: {version}")
+            return {"path": conf_path, "version": version}
+
+    # Fallback to possible paths
     possible_paths = [
         "/usr/local/tomcat/conf",
         "/opt/tomcat/conf",
@@ -52,18 +62,36 @@ def get_tomcat_config_path():
         "/usr/share/tomcat9/conf"
     ]
     for path in possible_paths:
-        if os.path.exists(path):
-            server_xml = os.path.join(path, "server.xml")
-            if os.path.exists(server_xml):
-                version = "Unknown"
-                if "tomcat7" in path:
-                    version = "7.0"
-                elif "tomcat8" in path:
-                    version = "8.5"
-                elif "tomcat9" in path:
-                    version = "9.0"
-                return {"path": path, "version": version}
+        if os.path.exists(path) and os.path.exists(os.path.join(path, "server.xml")):
+            version = detect_tomcat_version(os.path.dirname(path))
+            write_log(f"Found Tomcat at {path}, version: {version}")
+            return {"path": path, "version": version}
+    
+    write_log("Error: No Tomcat configuration directory found in CATALINA_HOME or known paths")
     return None
+
+# Function to detect Tomcat version
+def detect_tomcat_version(tomcat_home):
+    version_file = os.path.join(tomcat_home, "RELEASE-NOTES")
+    if os.path.exists(version_file):
+        with open(version_file, "r") as f:
+            for line in f:
+                if line.startswith("Apache Tomcat Version"):
+                    version = line.split()[-1]
+                    if version.startswith("7."):
+                        return "7.0"
+                    elif version.startswith("8."):
+                        return "8.5"
+                    elif version.startswith("9."):
+                        return "9.0"
+    # Fallback based on directory name
+    if "tomcat7" in tomcat_home:
+        return "7.0"
+    elif "tomcat8" in tomcat_home:
+        return "8.5"
+    elif "tomcat9" in tomcat_home:
+        return "9.0"
+    return "Unknown"
 
 # Detect Tomcat installation
 tomcat_info = get_tomcat_config_path()
