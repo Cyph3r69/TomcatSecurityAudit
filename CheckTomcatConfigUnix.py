@@ -121,4 +121,75 @@ for user in users:
     algorithm = credential_handler.get("algorithm") if credential_handler else "None"
     params.append(f"- Parameter: Algorithm = {algorithm} [{'PASS' if algorithm in ['SHA-256', 'SHA-512', 'PBKDF2WithHmacSHA512'] else 'FAIL'}]")
     iterations = int(credential_handler.get("iterations", "0")) if credential_handler else 0
-    params.append(f"-
+    params.append(f"- Parameter: Iterations = {iterations} [{'PASS' if iterations >= 10000 else 'FAIL'}]")
+    salt_length = int(credential_handler.get("saltLength", "0")) if credential_handler else 0
+    params.append(f"- Parameter: Salt Length = {salt_length} [{'PASS' if salt_length >= 16 else 'FAIL'}]")
+
+    for param in params:
+        write_log(f"  {param}")
+
+    # Compliance check
+    if password_type == "Plaintext":
+        write_log("  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark")
+        write_log("    - Plaintext passwords detected in tomcat-users.xml")
+        write_log("    - Recommendation: Use salted and iterated passwords (e.g., SHA-256 or PBKDF2)")
+        is_secure = False
+    elif password_type in ["Hashed_MD5", "Salted_MD5"]:
+        write_log("  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark")
+        write_log(f"    - Weak password hashing ({password_type}) detected")
+        write_log("    - Recommendation: Use SHA-256, SHA-512, or PBKDF2")
+        is_secure = False
+    elif password_type == "Hashed_SHA1":
+        write_log("  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark")
+        write_log("    - Weak password hashing (SHA-1) detected")
+        write_log("    - Recommendation: Use SHA-256, SHA-512, or PBKDF2")
+        is_secure = False
+    elif password_type == "Hashed_SHA256":
+        if tomcat_version == "7.0":
+            write_log("  - Status: Compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark for Tomcat 7.0")
+        elif not credential_handler or credential_handler.get("algorithm") != "SHA-256" or iterations < 10000 or salt_length < 16:
+            write_log("  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark")
+            write_log("    - Hashed_SHA256 passwords should use salt and iterations")
+            write_log("    - Recommendation: Configure MessageDigestCredentialHandler with saltLength >= 16 and iterations >= 10000")
+            is_secure = False
+        else:
+            write_log("  - Status: Compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark")
+    elif password_type == "Hashed_SHA512":
+        if tomcat_version == "7.0":
+            write_log("  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark")
+            write_log("    - SHA-512 not supported in Tomcat 7.0")
+            write_log("    - Recommendation: Use SHA-256")
+            is_secure = False
+        elif not credential_handler or credential_handler.get("algorithm") != "SHA-512" or iterations < 10000 or salt_length < 16:
+            write_log("  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark")
+            write_log("    - Hashed_SHA512 passwords should use salt and iterations")
+            write_log("    - Recommendation: Configure MessageDigestCredentialHandler with saltLength >= 16 and iterations >= 10000")
+            is_secure = False
+        else:
+            write_log("  - Status: Compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark")
+    elif password_type == "Salted_PBKDF2":
+        if tomcat_version == "7.0":
+            write_log("  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark")
+            write_log("    - PBKDF2 not supported in Tomcat 7.0")
+            write_log("    - Recommendation: Use SHA-256")
+            is_secure = False
+        elif tomcat_version == "8.5":
+            if not credential_handler or credential_handler.get("algorithm") not in ["SHA-256", "SHA-512"] or iterations < 10000 or salt_length < 16:
+                write_log("  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark")
+                write_log("    - Salted_PBKDF2 requires compatible MessageDigestCredentialHandler")
+                write_log("    - Recommendation: Configure MessageDigestCredentialHandler with SHA-256/SHA-512, saltLength >= 16, iterations >= 10000")
+                is_secure = False
+            else:
+                write_log("  - Status: Compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark")
+        else:  # Tomcat 9.0
+            if credential_handler and credential_handler.get("className") == "org.apache.catalina.realm.SecretKeyCredentialHandler" and \
+               credential_handler.get("algorithm") == "PBKDF2WithHmacSHA512" and iterations >= 10000 and salt_length >= 16:
+                write_log("  - Status: Compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark")
+            else:
+                write_log("  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark")
+                write_log("    - Salted_PBKDF2 requires SecretKeyCredentialHandler with PBKDF2")
+                write_log("    - Recommendation: Configure SecretKeyCredentialHandler with PBKDF2, saltLength >= 16, iterations >= 10000")
+                is_secure = False
+
+write_log(f"Overall Configuration: {'Secure' if is_secure else 'Insecure'}")
+write_log("Audit completed")
