@@ -28,7 +28,6 @@ Note: Plaintext, MD5, SHA-1, and unsalted hashes are insecure and non-compliant.
 
 ## Detected Password Hashes
 The scripts identify the following password types in tomcat-users.xml:
-
 Plaintext: Insecure, non-compliant.
 Hashed_MD5: 32-character hex (insecure).
 Hashed_SHA1: 40-character hex (insecure).
