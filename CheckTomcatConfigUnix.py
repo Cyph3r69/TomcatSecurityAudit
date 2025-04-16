@@ -1,4 +1,3 @@
-```python
 #!/usr/bin/env python3
 # CheckTomcatConfigUnix.py
 # Audits Tomcat configuration for password security and compliance (7.0, 8.5, 9.0)
@@ -194,4 +193,3 @@ for user in users:
 
 write_log(f"Overall Configuration: {'Secure' if is_secure else 'Insecure'}")
 write_log("Audit completed")
-```
