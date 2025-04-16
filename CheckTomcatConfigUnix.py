@@ -64,8 +64,9 @@ try:
     root = tree.getroot()
 
     # Look for insecure CredentialHandler
-    realm = (root.find(".//Realm[@className='org.apache.catalina.realm.UserDatabaseRealm']") or
-             root.find(".//Realm[@className='org.apache.catalina.realm.MemoryRealm']"))
+    realm = root.find(".//Realm[@className='org.apache.catalina.realm.UserDatabaseRealm']")
+    if realm is None:
+        realm = root.find(".//Realm[@className='org.apache.catalina.realm.MemoryRealm']")
     if realm is not None:
         handler = realm.find("CredentialHandler")
         if handler is None:
