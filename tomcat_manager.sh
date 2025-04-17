@@ -99,11 +99,12 @@ install_tomcat() {
     local JAVA_BIN
     local CHECKSUM_URL
     local CHECKSUM
-    local LOCAL_FILE="/tmp/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
+    local LOCAL_FILE
 
     case $TOMCAT_MAJOR in
         7)
             TOMCAT_VERSION="7.0.114"
+            LOCAL_FILE="/tmp/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
             TOMCAT_URLS=(
                 "https://archive.apache.org/dist/tomcat/tomcat-7/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
                 "https://dlcdn.apache.org/tomcat/tomcat-7/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
@@ -118,6 +119,7 @@ install_tomcat() {
             ;;
         8.5)
             TOMCAT_VERSION="8.5.100"
+            LOCAL_FILE="/tmp/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
             TOMCAT_URLS=(
                 "https://dlcdn.apache.org/tomcat/tomcat-8/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
                 "https://archive.apache.org/dist/tomcat/tomcat-8/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
@@ -132,6 +134,7 @@ install_tomcat() {
             ;;
         9)
             TOMCAT_VERSION="9.0.104"
+            LOCAL_FILE="/tmp/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
             TOMCAT_URLS=(
                 "https://dlcdn.apache.org/tomcat/tomcat-9/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
                 "https://archive.apache.org/dist/tomcat/tomcat-9/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
@@ -230,6 +233,7 @@ install_tomcat() {
             break
         else
             log "WARNING: Failed to download from ${TOMCAT_URL}. Trying next URL..."
+            sleep 2
         fi
     done
 
@@ -239,6 +243,7 @@ install_tomcat() {
         if [ -f "$LOCAL_FILE" ]; then
             log "Found local file ${LOCAL_FILE}. Proceeding with installation..."
             DOWNLOADED=true
+            mv "$LOCAL_FILE" "apache-tomcat-${TOMCAT_VERSION}.tar.gz"
         else
             log "ERROR: Failed to download Tomcat archive from all URLs and no local file found."
             log "URLs tried: ${TOMCAT_URLS[*]}"
