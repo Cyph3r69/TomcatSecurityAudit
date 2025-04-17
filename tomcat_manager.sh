@@ -103,7 +103,7 @@ install_tomcat() {
 
     case $TOMCAT_MAJOR in
         7)
-            TOMCAT_VERSION="7.0.114"
+            TOMCAT_VERSION="7.0.100"
             LOCAL_FILE="/tmp/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
             TOMCAT_URLS=(
                 "https://archive.apache.org/dist/tomcat/tomcat-7/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
@@ -115,7 +115,7 @@ install_tomcat() {
             JAVA_OPTS="-Djava.awt.headless=true -Djava.security.egd=file:/dev/./urandom"
             JAVA_BIN="${JAVA_HOME}/bin/java"
             CHECKSUM_URL="https://archive.apache.org/dist/tomcat/tomcat-7/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz.sha512"
-            CHECKSUM="8e7c3a5b7e9f2d1c4a8b6e7f9d0c2a3b5e8f1d0c4a7b6e9f2d1c3a5b7e9f2d0c4a8b6e7f9d0c2a3b5e8f1d0c4a7b6e9f2d1c3a5b7e9f2d0c4a8b6e7f9d0c2a3b5"
+            CHECKSUM="6f43ae2b3a29a628d8ab2504706f1e8974c5e2f6e7db84e3776e37e7ca83c77ae5d5993f3c6eb97e0ca6db37eb4a48b1b7e6ec0348e2d1c4a7b6e9f2d1c3a5b7e"
             ;;
         8.5)
             TOMCAT_VERSION="8.5.100"
