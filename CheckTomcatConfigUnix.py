@@ -6,6 +6,7 @@ import os
 import sys
 import xml.etree.ElementTree as ET
 import datetime
+import re
 
 # Log setup
 log_file = os.path.expanduser("~/TestTomcatConfig.log")
@@ -49,7 +50,7 @@ def get_tomcat_config_path():
     write_log("Error: No Tomcat configuration directory found")
     return None
 
-# Detect Tomcat version (for compliance checks)
+# Detect Tomcat version
 def detect_tomcat_version(tomcat_home):
     version_file = os.path.join(tomcat_home, "RELEASE-NOTES")
     if os.path.exists(version_file):
@@ -96,7 +97,9 @@ write_log(f"Auditing server.xml at {server_xml}", 1)
 realm = root.find(".//Realm[@className='org.apache.catalina.realm.UserDatabaseRealm']")
 if realm is None:
     realm = root.find(".//Realm[@className='org.apache.catalina.realm.MemoryRealm']")
-credential_handler = realm.find("CredentialHandler") if realm else None
+credential_handler = None
+if realm is not None:
+    credential_handler = realm.find("CredentialHandler")
 
 # Initialize overall security status
 is_secure = True
@@ -134,17 +137,17 @@ for user in users:
 
     # Detect password type
     password_type = "Plaintext"
-    if password.lower().matches(r"^[a-f0-9]{32}$"):
+    if re.match(r"^[a-f0-9]{32}$", password.lower()):
         password_type = "Hashed_MD5"
-    elif password.lower().matches(r"^[a-f0-9]{40}$"):
+    elif re.match(r"^[a-f0-9]{40}$", password.lower()):
         password_type = "Hashed_SHA1"
-    elif password.lower().matches(r"^[a-f0-9]{64}$"):
+    elif re.match(r"^[a-f0-9]{64}$", password.lower()):
         password_type = "Hashed_SHA256"
-    elif password.lower().matches(r"^[a-f0-9]{128}$"):
+    elif re.match(r"^[a-f0-9]{128}$", password.lower()):
         password_type = "Hashed_SHA512"
-    elif password.lower().matches(r"^[a-f0-9]{32}:[a-f0-9]{16}$"):
+    elif re.match(r"^[a-f0-9]{32}:[a-f0-9]{16}$", password.lower()):
         password_type = "Salted_MD5"
-    elif password.lower().matches(r"^[a-f0-9]{32}:[a-f0-9]{16}$"):
+    elif re.match(r"^[a-f0-9]{32}:[a-f0-9]{16}$", password.lower()):
         password_type = "Salted_PBKDF2"
 
     write_log(f"Password Type: {password_type} ({'insecure' if password_type in ['Plaintext', 'Hashed_MD5', 'Hashed_SHA1', 'Salted_MD5'] else 'secure'})", 3)
@@ -156,19 +159,19 @@ for user in users:
     params.append(f"Parameter: Password Type = {password_type} [{'FAIL' if password_type in ['Plaintext', 'Hashed_MD5', 'Hashed_SHA1', 'Salted_MD5'] else 'PASS'}]")
 
     # Parameter: CredentialHandler Presence
-    handler_class = credential_handler.get("className", "None") if credential_handler else "None"
-    params.append(f"Parameter: CredentialHandler = {handler_class} [{'PASS' if credential_handler else 'FAIL'}]")
+    handler_class = credential_handler.get("className", "None") if credential_handler is not None else "None"
+    params.append(f"Parameter: CredentialHandler = {handler_class} [{'PASS' if credential_handler is not None else 'FAIL'}]")
 
     # Parameter: Algorithm
-    algorithm = credential_handler.get("algorithm", "None") if credential_handler else "None"
+    algorithm = credential_handler.get("algorithm", "None") if credential_handler is not None else "None"
     params.append(f"Parameter: Algorithm = {algorithm} [{'PASS' if algorithm in ['SHA-256', 'SHA-512', 'PBKDF2WithHmacSHA512'] else 'FAIL'}]")
 
     # Parameter: Iterations
-    iterations = int(credential_handler.get("iterations", 0)) if credential_handler else 0
+    iterations = int(credential_handler.get("iterations", 0)) if credential_handler is not None else 0
     params.append(f"Parameter: Iterations = {iterations} [{'PASS' if iterations >= 10000 else 'FAIL'}]")
 
     # Parameter: Salt Length
-    salt_length = int(credential_handler.get("saltLength", 0)) if credential_handler else 0
+    salt_length = int(credential_handler.get("saltLength", 0)) if credential_handler is not None else 0
     params.append(f"Parameter: Salt Length = {salt_length} [{'PASS' if salt_length >= 16 else 'FAIL'}]")
 
     # Log parameters
