@@ -59,6 +59,7 @@ install_tomcat() {
     local TOMCAT_URL
     local JAVA_HOME
     local JAVA_VERSION
+    local JAVA_OPTS
 
     case $TOMCAT_MAJOR in
         7)
@@ -66,18 +67,21 @@ install_tomcat() {
             TOMCAT_URL="https://archive.apache.org/dist/tomcat/tomcat-7/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
             JAVA_VERSION="8"
             JAVA_HOME="/usr/lib/jvm/java-8-openjdk-amd64"
+            JAVA_OPTS="-Djava.awt.headless=true -Djava.security.egd=file:/dev/./urandom"
             ;;
         8.5)
             TOMCAT_VERSION="8.5.100"
             TOMCAT_URL="https://dlcdn.apache.org/tomcat/tomcat-8/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
-            JAVA_VERSION="8"
-            JAVA_HOME="/usr/lib/jvm/java-8-openjdk-amd64"
+            JAVA_VERSION="11"
+            JAVA_HOME="/usr/lib/jvm/java-11-openjdk-amd64"
+            JAVA_OPTS="-Djava.awt.headless=true -Djava.security.egd=file:/dev/./urandom --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED"
             ;;
         9)
             TOMCAT_VERSION="9.0.104"
             TOMCAT_URL="https://dlcdn.apache.org/tomcat/tomcat-9/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
             JAVA_VERSION="11"
             JAVA_HOME="/usr/lib/jvm/java-11-openjdk-amd64"
+            JAVA_OPTS="-Djava.awt.headless=true -Djava.security.egd=file:/dev/./urandom"
             ;;
         *)
             log "ERROR: Unsupported Tomcat version. Choose 7, 8.5, or 9."
@@ -101,8 +105,15 @@ install_tomcat() {
     # Install required Java version
     log "Installing OpenJDK ${JAVA_VERSION}..."
     if ! apt install -y openjdk-${JAVA_VERSION}-jdk; then
-        log "ERROR: Failed to install OpenJDK ${JAVA_VERSION}. Ensure the package is available."
-        exit 1
+        if [ "$JAVA_VERSION" = "8" ]; then
+            log "ERROR: Failed to install OpenJDK 8. OpenJDK 8 may not be available in Kali repositories."
+            log "For Tomcat 7, you must manually install OpenJDK 8 or use a compatible Java version."
+            log "See https://adoptium.net/temurin/releases/?version=8 for manual installation."
+            exit 1
+        else
+            log "ERROR: Failed to install OpenJDK ${JAVA_VERSION}. Ensure the package is available."
+            exit 1
+        fi
     fi
 
     # Verify Java installation
@@ -174,7 +185,7 @@ Environment="CATALINA_PID=${TOMCAT_DIR}/temp/tomcat.pid"
 Environment="CATALINA_HOME=${TOMCAT_DIR}"
 Environment="CATALINA_BASE=${TOMCAT_DIR}"
 Environment="CATALINA_OPTS=-Xms512M -Xmx1024M -server -XX:+UseParallelGC"
-Environment="JAVA_OPTS=-Djava.awt.headless=true -Djava.security.egd=file:/dev/./urandom"
+Environment="JAVA_OPTS=${JAVA_OPTS}"
 ExecStart=${TOMCAT_DIR}/bin/startup.sh
 ExecStop=${TOMCAT_DIR}/bin/shutdown.sh
 User=tomcat
