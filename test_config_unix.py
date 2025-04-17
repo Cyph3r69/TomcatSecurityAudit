@@ -17,7 +17,7 @@ def write_log(message, indent=0, console_only=False):
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     log_message = f"{'  ' * indent}{message}"
     if not console_only:
-        log_message = f"[{timestamp}] {log_message}"
+        log_message = f"{log_message}"
         try:
             with open(log_file, "a") as f:
                 f.write(log_message + "\n")
