@@ -60,6 +60,7 @@ install_tomcat() {
     local JAVA_HOME
     local JAVA_VERSION
     local JAVA_OPTS
+    local JAVA_BIN
 
     case $TOMCAT_MAJOR in
         7)
@@ -68,6 +69,7 @@ install_tomcat() {
             JAVA_VERSION="8"
             JAVA_HOME="/usr/lib/jvm/java-8-openjdk-amd64"
             JAVA_OPTS="-Djava.awt.headless=true -Djava.security.egd=file:/dev/./urandom"
+            JAVA_BIN="${JAVA_HOME}/bin/java"
             ;;
         8.5)
             TOMCAT_VERSION="8.5.100"
@@ -75,6 +77,7 @@ install_tomcat() {
             JAVA_VERSION="11"
             JAVA_HOME="/usr/lib/jvm/java-11-openjdk-amd64"
             JAVA_OPTS="-Djava.awt.headless=true -Djava.security.egd=file:/dev/./urandom --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED"
+            JAVA_BIN="${JAVA_HOME}/bin/java"
             ;;
         9)
             TOMCAT_VERSION="9.0.104"
@@ -82,6 +85,7 @@ install_tomcat() {
             JAVA_VERSION="11"
             JAVA_HOME="/usr/lib/jvm/java-11-openjdk-amd64"
             JAVA_OPTS="-Djava.awt.headless=true -Djava.security.egd=file:/dev/./urandom"
+            JAVA_BIN="${JAVA_HOME}/bin/java"
             ;;
         *)
             log "ERROR: Unsupported Tomcat version. Choose 7, 8.5, or 9."
@@ -118,31 +122,35 @@ install_tomcat() {
 
     # Verify Java installation
     log "Verifying Java installation..."
-    JAVA_VERSION_OUTPUT=$(java -version 2>&1)
+    if [ ! -f "$JAVA_BIN" ]; then
+        log "ERROR: Java binary ${JAVA_BIN} not found. Ensure ${JAVA_HOME} is correct."
+        log "Attempting to find Java ${JAVA_VERSION} installation..."
+        JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))
+        JAVA_BIN="${JAVA_HOME}/bin/java"
+        if [ ! -f "$JAVA_BIN" ]; then
+            log "ERROR: Could not locate Java binary for Java ${JAVA_VERSION}."
+            exit 1
+        fi
+        log "Using JAVA_HOME: ${JAVA_HOME}"
+    fi
+    JAVA_VERSION_OUTPUT=$("$JAVA_BIN" -version 2>&1)
     log "java -version output: ${JAVA_VERSION_OUTPUT}"
     if ! echo "$JAVA_VERSION_OUTPUT" | grep -q "1${JAVA_VERSION}\." && ! echo "$JAVA_VERSION_OUTPUT" | grep -q "${JAVA_VERSION}\." && ! echo "$JAVA_VERSION_OUTPUT" | grep -q "openjdk version.*${JAVA_VERSION}"; then
-        log "ERROR: Java ${JAVA_VERSION} not detected. Ensure the correct version is active."
-        log "Run 'update-alternatives --config java' to select Java ${JAVA_VERSION}."
-        # Attempt to parse version dynamically
+        log "ERROR: Java ${JAVA_VERSION} not detected with ${JAVA_BIN}."
         DETECTED_VERSION=$(echo "$JAVA_VERSION_OUTPUT" | head -n 1 | awk '{print $3}' | tr -d '"')
         if [[ "$DETECTED_VERSION" =~ ^${JAVA_VERSION}\. ]]; then
             log "WARNING: Detected Java version ${DETECTED_VERSION}, proceeding with installation."
         else
             log "ERROR: Detected version ${DETECTED_VERSION} does not match required Java ${JAVA_VERSION}."
+            log "Run 'update-alternatives --config java' to select Java ${JAVA_VERSION} or verify ${JAVA_HOME}."
             exit 1
         fi
     fi
 
     # Verify JAVA_HOME
     if [ ! -d "$JAVA_HOME" ]; then
-        log "WARNING: JAVA_HOME directory ${JAVA_HOME} does not exist."
-        log "Attempting to find Java ${JAVA_VERSION} installation..."
-        JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))
-        if [ ! -d "$JAVA_HOME" ]; then
-            log "ERROR: Could not locate JAVA_HOME for Java ${JAVA_VERSION}."
-            exit 1
-        fi
-        log "Using JAVA_HOME: ${JAVA_HOME}"
+        log "ERROR: JAVA_HOME directory ${JAVA_HOME} does not exist."
+        exit 1
     fi
 
     # Create tomcat user
