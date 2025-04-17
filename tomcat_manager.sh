@@ -120,10 +120,17 @@ install_tomcat() {
     log "Verifying Java installation..."
     JAVA_VERSION_OUTPUT=$(java -version 2>&1)
     log "java -version output: ${JAVA_VERSION_OUTPUT}"
-    if ! echo "$JAVA_VERSION_OUTPUT" | grep -q "1${JAVA_VERSION}\." && ! echo "$JAVA_VERSION_OUTPUT" | grep -q "${JAVA_VERSION}\."; then
+    if ! echo "$JAVA_VERSION_OUTPUT" | grep -q "1${JAVA_VERSION}\." && ! echo "$JAVA_VERSION_OUTPUT" | grep -q "${JAVA_VERSION}\." && ! echo "$JAVA_VERSION_OUTPUT" | grep -q "openjdk version.*${JAVA_VERSION}"; then
         log "ERROR: Java ${JAVA_VERSION} not detected. Ensure the correct version is active."
         log "Run 'update-alternatives --config java' to select Java ${JAVA_VERSION}."
-        exit 1
+        # Attempt to parse version dynamically
+        DETECTED_VERSION=$(echo "$JAVA_VERSION_OUTPUT" | head -n 1 | awk '{print $3}' | tr -d '"')
+        if [[ "$DETECTED_VERSION" =~ ^${JAVA_VERSION}\. ]]; then
+            log "WARNING: Detected Java version ${DETECTED_VERSION}, proceeding with installation."
+        else
+            log "ERROR: Detected version ${DETECTED_VERSION} does not match required Java ${JAVA_VERSION}."
+            exit 1
+        fi
     fi
 
     # Verify JAVA_HOME
