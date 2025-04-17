@@ -131,9 +131,9 @@ if not users:
 for user in users:
     username = user.get("username", "unknown")
     password = user.get("password", "")
-    write_log(f"- User '{username}': {password_type} password ({'insecure' if password_type in ['Plaintext', 'Hashed_MD5', 'Hashed_SHA1', 'Salted_MD5'] else 'secure'})", 1, suppress_timestamp=True)
 
     if not password:
+        write_log(f"- User '{username}': No password defined", 1, suppress_timestamp=True)
         write_log("No password defined", 2, suppress_timestamp=True)
         write_log("Status: Compliant (no password to evaluate)", 2, suppress_timestamp=True)
         continue
@@ -153,6 +153,9 @@ for user in users:
             password_type = "Salted_PBKDF2"
         else:
             password_type = "Salted_MD5"
+
+    # Log user and password type
+    write_log(f"- User '{username}': {password_type} password ({'insecure' if password_type in ['Plaintext', 'Hashed_MD5', 'Hashed_SHA1', 'Salted_MD5'] else 'secure'})", 1, suppress_timestamp=True)
 
     # Parameter checks
     params = []
