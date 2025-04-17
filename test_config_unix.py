@@ -157,4 +157,144 @@ expected_outcomes = {
         "Hashed_MD5": ["Warning: No CredentialHandler defined in Realm", "Warning: Plaintext password detected for user testuser"],
         "Hashed_SHA1": ["Warning: No CredentialHandler defined in Realm", "Warning: Plaintext password detected for user testuser"],
         "Hashed_SHA256": ["Warning: No CredentialHandler defined in Realm", "Warning: Plaintext password detected for user testuser"],
-        "Hashed_SHA512": ["Warning: No CredentialHandler defined in Realm", "Warning: Plain
+        "Hashed_SHA512": ["Warning: No CredentialHandler defined in Realm", "Warning: Plaintext password detected for user testuser"],
+        "Salted_MD5": ["Warning: No CredentialHandler defined in Realm"],
+        "Salted_PBKDF2": ["Warning: No CredentialHandler defined in Realm"]
+    },
+    "MessageDigestCredentialHandler_MD5": {
+        "Plaintext": ["Found CredentialHandler with algorithm: MD5", "Warning: Insecure CredentialHandler algorithm (MD5) detected", "Warning: Plaintext password detected for user testuser"],
+        "Hashed_MD5": ["Found CredentialHandler with algorithm: MD5", "Warning: Insecure CredentialHandler algorithm (MD5) detected", "Warning: Plaintext password detected for user testuser"],
+        "Hashed_SHA1": ["Found CredentialHandler with algorithm: MD5", "Warning: Insecure CredentialHandler algorithm (MD5) detected", "Warning: Plaintext password detected for user testuser"],
+        "Hashed_SHA256": ["Found CredentialHandler with algorithm: MD5", "Warning: Insecure CredentialHandler algorithm (MD5) detected", "Warning: Plaintext password detected for user testuser"],
+        "Hashed_SHA512": ["Found CredentialHandler with algorithm: MD5", "Warning: Insecure CredentialHandler algorithm (MD5) detected", "Warning: Plaintext password detected for user testuser"],
+        "Salted_MD5": ["Found CredentialHandler with algorithm: MD5", "Warning: Insecure CredentialHandler algorithm (MD5) detected"],
+        "Salted_PBKDF2": ["Found CredentialHandler with algorithm: MD5", "Warning: Insecure CredentialHandler algorithm (MD5) detected"]
+    },
+    "MessageDigestCredentialHandler_SHA256": {
+        "Plaintext": ["Found CredentialHandler with algorithm: SHA-256", "Warning: Plaintext password detected for user testuser"],
+        "Hashed_MD5": ["Found CredentialHandler with algorithm: SHA-256", "Warning: Plaintext password detected for user testuser"],
+        "Hashed_SHA1": ["Found CredentialHandler with algorithm: SHA-256", "Warning: Plaintext password detected for user testuser"],
+        "Hashed_SHA256": ["Found CredentialHandler with algorithm: SHA-256", "Warning: Plaintext password detected for user testuser"],
+        "Hashed_SHA512": ["Found CredentialHandler with algorithm: SHA-256", "Warning: Plaintext password detected for user testuser"],
+        "Salted_MD5": ["Found CredentialHandler with algorithm: SHA-256"],
+        "Salted_PBKDF2": ["Found CredentialHandler with algorithm: SHA-256"]
+    },
+    "MessageDigestCredentialHandler_SHA512": {
+        "Plaintext": ["Found CredentialHandler with algorithm: SHA-512", "Warning: Plaintext password detected for user testuser"],
+        "Hashed_MD5": ["Found CredentialHandler with algorithm: SHA-512", "Warning: Plaintext password detected for user testuser"],
+        "Hashed_SHA1": ["Found CredentialHandler with algorithm: SHA-512", "Warning: Plaintext password detected for user testuser"],
+        "Hashed_SHA256": ["Found CredentialHandler with algorithm: SHA-512", "Warning: Plaintext password detected for user testuser"],
+        "Hashed_SHA512": ["Found CredentialHandler with algorithm: SHA-512", "Warning: Plaintext password detected for user testuser"],
+        "Salted_MD5": ["Found CredentialHandler with algorithm: SHA-512"],
+        "Salted_PBKDF2": ["Found CredentialHandler with algorithm: SHA-512"]
+    },
+    "NestedCredentialHandler": {
+        "Plaintext": ["Found CredentialHandler with algorithm: None", "Warning: Plaintext password detected for user testuser"],
+        "Hashed_MD5": ["Found CredentialHandler with algorithm: None", "Warning: Plaintext password detected for user testuser"],
+        "Hashed_SHA1": ["Found CredentialHandler with algorithm: None", "Warning: Plaintext password detected for user testuser"],
+        "Hashed_SHA256": ["Found CredentialHandler with algorithm: None", "Warning: Plaintext password detected for user testuser"],
+        "Hashed_SHA512": ["Found CredentialHandler with algorithm: None", "Warning: Plaintext password detected for user testuser"],
+        "Salted_MD5": ["Found CredentialHandler with algorithm: None"],
+        "Salted_PBKDF2": ["Found CredentialHandler with algorithm: None"]
+    },
+    "SecretKeyCredentialHandler_PBKDF2": {
+        "Plaintext": ["Found CredentialHandler with algorithm: PBKDF2WithHmacSHA512", "Warning: Plaintext password detected for user testuser"],
+        "Hashed_MD5": ["Found CredentialHandler with algorithm: PBKDF2WithHmacSHA512", "Warning: Plaintext password detected for user testuser"],
+        "Hashed_SHA1": ["Found CredentialHandler with algorithm: PBKDF2WithHmacSHA512", "Warning: Plaintext password detected for user testuser"],
+        "Hashed_SHA256": ["Found CredentialHandler with algorithm: PBKDF2WithHmacSHA512", "Warning: Plaintext password detected for user testuser"],
+        "Hashed_SHA512": ["Found CredentialHandler with algorithm: PBKDF2WithHmacSHA512", "Warning: Plaintext password detected for user testuser"],
+        "Salted_MD5": ["Found CredentialHandler with algorithm: PBKDF2WithHmacSHA512"],
+        "Salted_PBKDF2": ["Found CredentialHandler with algorithm: PBKDF2WithHmacSHA512"]
+    }
+}
+
+# Backup original files
+server_xml = os.path.join(tomcat_conf_path, "server.xml")
+users_xml = os.path.join(tomcat_conf_path, "tomcat-users.xml")
+shutil.copy(server_xml, os.path.join(backup_dir, "server.xml.bak"))
+shutil.copy(users_xml, os.path.join(backup_dir, "tomcat-users.xml.bak"))
+write_log(f"Backed up original files to {backup_dir}")
+
+# Test tracking
+test_results = {"total": 0, "passed": 0, "failed": 0}
+
+# Run tests
+for server_test in server_tests:
+    for password_test in password_tests:
+        if password_test == "Hashed_SHA512" and tomcat_version == "7.0":
+            write_log(f"Skipping Hashed_SHA512 for Tomcat 7.0 (not supported)", 1)
+            continue
+        if password_test == "Salted_PBKDF2" and tomcat_version == "7.0":
+            write_log(f"Skipping Salted_PBKDF2 for Tomcat 7.0 (not supported)", 1)
+            continue
+        if password_test == "Salted_PBKDF2" and server_test == "SecretKeyCredentialHandler_PBKDF2" and tomcat_version != "9.0":
+            write_log(f"Skipping Salted_PBKDF2 with SecretKeyCredentialHandler for Tomcat {tomcat_version} (not supported)", 1)
+            continue
+
+        test_name = f"{tomcat_version}_{server_test}_{password_test}"
+        write_log(f"Running test: {test_name} for Tomcat {tomcat_version}", 1)
+        write_log(f"Description: Testing {password_test} password with {server_test} CredentialHandler", 2)
+
+        # Modify server.xml
+        tree = ET.parse(server_xml)
+        root = tree.getroot()
+        realm = root.find(".//Realm[@className='org.apache.catalina.realm.UserDatabaseRealm']")
+        if realm is None:
+            realm = root.find(".//Realm[@className='org.apache.catalina.realm.MemoryRealm']")
+        if realm is None:
+            write_log("Error: No UserDatabaseRealm or MemoryRealm found in server.xml. Skipping test.", 2)
+            continue
+        for handler in realm.findall("CredentialHandler"):
+            realm.remove(handler)
+        if server_test != "NoCredentialHandler":
+            handler_tree = ET.fromstring(server_configs[server_test])
+            realm.append(handler_tree)
+            write_log(f"Modified server.xml: Added {server_test} CredentialHandler", 2)
+        else:
+            write_log(f"Modified server.xml: Removed all CredentialHandlers", 2)
+        tree.write(server_xml, encoding="utf-8", xml_declaration=True)
+
+        # Modify tomcat-users.xml
+        users_tree = ET.parse(users_xml)
+        users_root = users_tree.getroot()
+        user = users_root.find(".//user[@username='testuser']")
+        if user is None:
+            user = ET.SubElement(users_root, "user", username="testuser", roles="manager")
+        user.set("password", password_values[password_test])
+        write_log(f"Modified tomcat-users.xml: Set password for testuser to {password_test} ({password_values[password_test]})", 2)
+        users_tree.write(users_xml, encoding="utf-8", xml_declaration=True)
+
+        # Expected output
+        expected = expected_outcomes[server_test][password_test]
+        write_log(f"Expected output: {', '.join(expected)}", 2)
+
+        # Run CheckTomcatConfigUnix.py
+        result = subprocess.run(["python3", "./CheckTomcatConfigUnix.py"], capture_output=True, text=True)
+        output = result.stdout + result.stderr
+        output_lines = [line.strip() for line in output.split("\n") if line.strip() and not line.startswith("[2025")]
+        write_log(f"Actual output: {', '.join(output_lines)}", 2)
+
+        # Validate test
+        test_results["total"] += 1
+        passed = all(exp in output for exp in expected)
+        if passed:
+            write_log(f"Test {test_name}: PASSED", 2)
+            test_results["passed"] += 1
+        else:
+            write_log(f"Test {test_name}: FAILED (Expected: {expected}, Got: {output_lines})", 2)
+            test_results["failed"] += 1
+
+# Restore original files
+shutil.copy(os.path.join(backup_dir, "server.xml.bak"), server_xml)
+shutil.copy(os.path.join(backup_dir, "tomcat-users.xml.bak"), users_xml)
+write_log("Restored original configuration files")
+
+# Summary report
+write_log("Test Summary:")
+write_log(f"Total tests run: {test_results['total']}", 1)
+write_log(f"Tests passed: {test_results['passed']}", 1)
+write_log(f"Tests failed: {test_results['failed']}", 1)
+write_log("All tests completed")
+
+if test_results["failed"] > 0:
+    sys.exit(1)
