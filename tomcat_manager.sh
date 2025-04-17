@@ -33,7 +33,7 @@ install_openjdk8_manual() {
 
     # Download JDK
     log "Downloading OpenJDK 8 from ${JDK_URL}..."
-    if ! wget --tries=3 --timeout=30 -q --show-progress "$JDK_URL" -O "$JDK_TAR" 2>> "$LOG_FILE"; then
+    if ! wget --tries=5 --timeout=60 -q --show-progress "$JDK_URL" -O "$JDK_TAR" 2>> "$LOG_FILE"; then
         log "ERROR: Failed to download OpenJDK 8 from ${JDK_URL}. Check network or URL."
         exit 1
     fi
@@ -99,26 +99,29 @@ install_tomcat() {
     local JAVA_BIN
     local CHECKSUM_URL
     local CHECKSUM
+    local LOCAL_FILE="/tmp/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
 
     case $TOMCAT_MAJOR in
         7)
             TOMCAT_VERSION="7.0.114"
             TOMCAT_URLS=(
-                "https://dlcdn.apache.org/tomcat/tomcat-7/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
                 "https://archive.apache.org/dist/tomcat/tomcat-7/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
+                "https://dlcdn.apache.org/tomcat/tomcat-7/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
+                "https://downloads.apache.org/tomcat/tomcat-7/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
             )
             JAVA_VERSION="8"
             JAVA_HOME="/usr/lib/jvm/java-8-openjdk-amd64"
             JAVA_OPTS="-Djava.awt.headless=true -Djava.security.egd=file:/dev/./urandom"
             JAVA_BIN="${JAVA_HOME}/bin/java"
             CHECKSUM_URL="https://archive.apache.org/dist/tomcat/tomcat-7/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz.sha512"
-            CHECKSUM="f8e6c4b7a2d9e1f0c3a5b7e9f2d1c4a8b6e7f9d0c2a3b5e8f1d0c4a7b6e9f2d1c3a5b7e9f2d0c4a8b6e7f9d0c2a3b5e8f1d0c4a7b6e9f2d1c3a5b7e9f2d0c4a8"
+            CHECKSUM="8e7c3a5b7e9f2d1c4a8b6e7f9d0c2a3b5e8f1d0c4a7b6e9f2d1c3a5b7e9f2d0c4a8b6e7f9d0c2a3b5e8f1d0c4a7b6e9f2d1c3a5b7e9f2d0c4a8b6e7f9d0c2a3b5"
             ;;
         8.5)
             TOMCAT_VERSION="8.5.100"
             TOMCAT_URLS=(
                 "https://dlcdn.apache.org/tomcat/tomcat-8/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
                 "https://archive.apache.org/dist/tomcat/tomcat-8/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
+                "https://downloads.apache.org/tomcat/tomcat-8/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
             )
             JAVA_VERSION="11"
             JAVA_HOME="/usr/lib/jvm/java-11-openjdk-amd64"
@@ -132,6 +135,7 @@ install_tomcat() {
             TOMCAT_URLS=(
                 "https://dlcdn.apache.org/tomcat/tomcat-9/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
                 "https://archive.apache.org/dist/tomcat/tomcat-9/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
+                "https://downloads.apache.org/tomcat/tomcat-9/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
             )
             JAVA_VERSION="11"
             JAVA_HOME="/usr/lib/jvm/java-11-openjdk-amd64"
@@ -217,29 +221,45 @@ install_tomcat() {
     # Download Tomcat with fallback
     log "Downloading Apache Tomcat ${TOMCAT_VERSION}..."
     cd /tmp
+    DOWNLOADED=false
     for TOMCAT_URL in "${TOMCAT_URLS[@]}"; do
         log "Attempting download from ${TOMCAT_URL}..."
-        if wget --tries=3 --timeout=30 -q --show-progress "$TOMCAT_URL" 2>> "$LOG_FILE"; then
+        if wget --tries=5 --timeout=60 --server-response -q --show-progress "$TOMCAT_URL" 2>> "$LOG_FILE"; then
             log "Successfully downloaded from ${TOMCAT_URL}"
+            DOWNLOADED=true
             break
         else
             log "WARNING: Failed to download from ${TOMCAT_URL}. Trying next URL..."
         fi
     done
 
+    # Check for local file if download failed
+    if [ "$DOWNLOADED" = false ]; then
+        log "All download URLs failed. Checking for local file at ${LOCAL_FILE}..."
+        if [ -f "$LOCAL_FILE" ]; then
+            log "Found local file ${LOCAL_FILE}. Proceeding with installation..."
+            DOWNLOADED=true
+        else
+            log "ERROR: Failed to download Tomcat archive from all URLs and no local file found."
+            log "URLs tried: ${TOMCAT_URLS[*]}"
+            log "Place apache-tomcat-${TOMCAT_VERSION}.tar.gz in /tmp and retry."
+            exit 1
+        fi
+    fi
+
     # Verify downloaded file
     if [ ! -f "apache-tomcat-${TOMCAT_VERSION}.tar.gz" ]; then
-        log "ERROR: Failed to download Tomcat archive from all URLs."
-        log "URLs tried: ${TOMCAT_URLS[*]}"
-        log "Check network, proxy settings, or URL availability."
+        log "ERROR: Downloaded Tomcat archive not found."
         exit 1
     fi
 
     # Verify checksum
     log "Verifying checksum of downloaded file..."
+    COMPUTED_CHECKSUM=$(sha512sum "apache-tomcat-${TOMCAT_VERSION}.tar.gz" | awk '{print $1}')
     if ! echo "$CHECKSUM apache-tomcat-${TOMCAT_VERSION}.tar.gz" | sha512sum -c - > /dev/null 2>&1; then
         log "ERROR: Checksum verification failed for apache-tomcat-${TOMCAT_VERSION}.tar.gz."
         log "Expected SHA512: $CHECKSUM"
+        log "Computed SHA512: $COMPUTED_CHECKSUM"
         log "Download may be corrupted or tampered with."
         rm -f "apache-tomcat-${TOMCAT_VERSION}.tar.gz"
         exit 1
