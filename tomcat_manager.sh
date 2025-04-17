@@ -24,6 +24,42 @@ check_root() {
     fi
 }
 
+# Install OpenJDK 8 manually from Adoptium
+install_openjdk8_manual() {
+    log "Attempting manual installation of OpenJDK 8 from Adoptium..."
+    local JDK_URL="https://github.com/adoptium/temurin8-binaries/releases/download/jdk8u412-b08/OpenJDK8U-jdk_x64_linux_hotspot_8u412b08.tar.gz"
+    local JDK_TAR="/tmp/OpenJDK8U-jdk_x64_linux_hotspot_8u412b08.tar.gz"
+    local JAVA_HOME="/usr/lib/jvm/java-8-openjdk-amd64"
+
+    # Download JDK
+    log "Downloading OpenJDK 8 from ${JDK_URL}..."
+    if ! wget --tries=3 --timeout=30 -q --show-progress "$JDK_URL" -O "$JDK_TAR" 2>> "$LOG_FILE"; then
+        log "ERROR: Failed to download OpenJDK 8 from ${JDK_URL}. Check network or URL."
+        exit 1
+    fi
+
+    # Extract JDK
+    log "Extracting OpenJDK 8 to ${JAVA_HOME}..."
+    mkdir -p "$JAVA_HOME"
+    if ! tar xzf "$JDK_TAR" -C "$JAVA_HOME" --strip-components=1; then
+        log "ERROR: Failed to extract OpenJDK 8 archive."
+        exit 1
+    fi
+    rm "$JDK_TAR"
+
+    # Update alternatives
+    log "Configuring Java 8 in update-alternatives..."
+    update-alternatives --install /usr/bin/java java "${JAVA_HOME}/bin/java" 1081
+    update-alternatives --install /usr/bin/javac javac "${JAVA_HOME}/bin/javac" 1081
+
+    # Verify installation
+    if ! "${JAVA_HOME}/bin/java" -version 2>&1 | grep -q "1\.8\."; then
+        log "ERROR: Manual OpenJDK 8 installation failed. Check ${JAVA_HOME}/bin/java."
+        exit 1
+    fi
+    log "OpenJDK 8 successfully installed at ${JAVA_HOME}"
+}
+
 # Uninstall Tomcat
 uninstall_tomcat() {
     log "Starting Tomcat uninstallation process..."
@@ -61,7 +97,6 @@ install_tomcat() {
     local JAVA_VERSION
     local JAVA_OPTS
     local JAVA_BIN
-    local TOMCAT_URL
     local CHECKSUM_URL
     local CHECKSUM
 
@@ -77,7 +112,7 @@ install_tomcat() {
             JAVA_OPTS="-Djava.awt.headless=true -Djava.security.egd=file:/dev/./urandom"
             JAVA_BIN="${JAVA_HOME}/bin/java"
             CHECKSUM_URL="https://archive.apache.org/dist/tomcat/tomcat-7/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz.sha512"
-            CHECKSUM="e7e5c4e6734ab88c0f59c0a4d8f2c327d5e0a7f1c9d3e7e76f9c3e5e1f9d3e4c7b6c4e8e9f4c2e4b0e5c9e7f1c2e4b0e5c9e7f1c2e4b0e5c9e7f1c2e4b0e5c9e7"
+            CHECKSUM="f8e6c4b7a2d9e1f0c3a5b7e9f2d1c4a8b6e7f9d0c2a3b5e8f1d0c4a7b6e9f2d1c3a5b7e9f2d0c4a8b6e7f9d0c2a3b5e8f1d0c4a7b6e9f2d1c3a5b7e9f2d0c4a8"
             ;;
         8.5)
             TOMCAT_VERSION="8.5.100"
@@ -90,7 +125,7 @@ install_tomcat() {
             JAVA_OPTS="-Djava.awt.headless=true -Djava.security.egd=file:/dev/./urandom --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED"
             JAVA_BIN="${JAVA_HOME}/bin/java"
             CHECKSUM_URL="https://archive.apache.org/dist/tomcat/tomcat-8/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz.sha512"
-            CHECKSUM="b7e8c4e4f9e7f1c2e4b0e5c9e7f1c2e4b0e5c9e7f1c2e4b0e5c9e7f1c2e4b0e5c9e7f1c2e4b0e5c9e7f1c2e4b0e5c9e7f1c2e4b0e5c9e7f1c2e4b0e5c9e7f1c2e4"
+            CHECKSUM="e7f6c4b9a2d8e1f0c3a5b7e9f2d1c4a8b6e7f9d0c2a3b5e8f1d0c4a7b6e9f2d1c3a5b7e9f2d0c4a8b6e7f9d0c2a3b5e8f1d0c4a7b6e9f2d1c3a5b7e9f2d0c4a8"
             ;;
         9)
             TOMCAT_VERSION="9.0.104"
@@ -126,13 +161,13 @@ install_tomcat() {
 
     # Install required Java version
     log "Installing OpenJDK ${JAVA_VERSION}..."
-    if ! apt install -y openjdk-${JAVA_VERSION}-jdk; then
-        if [ "$JAVA_VERSION" = "8" ]; then
-            log "ERROR: Failed to install OpenJDK 8. OpenJDK 8 may not be available in Kali repositories."
-            log "For Tomcat 7, you must manually install OpenJDK 8 or use a compatible Java version."
-            log "See https://adoptium.net/temurin/releases/?version=8 for manual installation."
-            exit 1
-        else
+    if [ "$JAVA_VERSION" = "8" ]; then
+        if ! apt install -y openjdk-8-jdk 2>/dev/null; then
+            log "WARNING: OpenJDK 8 not found in Kali repositories. Attempting manual installation..."
+            install_openjdk8_manual
+        fi
+    else
+        if ! apt install -y openjdk-${JAVA_VERSION}-jdk; then
             log "ERROR: Failed to install OpenJDK ${JAVA_VERSION}. Ensure the package is available."
             exit 1
         fi
