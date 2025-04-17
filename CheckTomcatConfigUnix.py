@@ -130,7 +130,7 @@ write_log(f"Auditing tomcat-users.xml at {users_xml}", indent=1)
 users = users_root.findall(".//user")
 if not users:
     write_log("No users defined in tomcat-users.xml", indent=2)
-    write_log("Status: Compliant (no passwords to evaluate)", indent=2, marker="  - ")
+    write_log("Status: Compliant (no passwords to evaluate)", indent=2, marker="  - ", suppress_timestamp=True)
     write_log("Overall Configuration: Secure (no vulnerabilities detected)")
     write_log("Audit completed")
     sys.exit(0)
