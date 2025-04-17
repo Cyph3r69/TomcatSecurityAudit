@@ -13,17 +13,19 @@ from pathlib import Path
 # Log setup
 log_file = os.path.expanduser("~/TestTomcatConfig.log")
 
-def write_log(message, indent=0):
+def write_log(message, indent=0, console_only=False):
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    log_message = f"[{timestamp}] {'  ' * indent}{message}"
-    try:
-        with open(log_file, "a") as f:
-            f.write(log_message + "\n")
-    except PermissionError:
-        print(f"Warning: Cannot write to {log_file}. Logging to console only.", file=sys.stderr)
+    log_message = f"{'  ' * indent}{message}"
+    if not console_only:
+        log_message = f"[{timestamp}] {log_message}"
+        try:
+            with open(log_file, "a") as f:
+                f.write(log_message + "\n")
+        except PermissionError:
+            print(f"Warning: Cannot write to {log_file}. Logging to console only.", file=sys.stderr)
     print(log_message)
 
-write_log("Starting tests for CheckTomcatConfigUnix.py...")
+write_log("Starting tests for CheckTomcatConfigUnix.py...", console_only=True)
 
 # Verify script exists
 if not os.path.exists("./CheckTomcatConfigUnix.py"):
@@ -98,7 +100,7 @@ if not tomcat_info:
     sys.exit(1)
 tomcat_conf_path = tomcat_info["path"]
 tomcat_version = tomcat_info["version"]
-write_log(f"Detected Tomcat version {tomcat_version} at {tomcat_conf_path}")
+write_log(f"Detected Tomcat version {tomcat_version} at {tomcat_conf_path}", console_only=True)
 
 # Backup directory
 backup_dir = "/tmp/TomcatConfigBackup"
@@ -155,381 +157,379 @@ server_configs = {
 expected_outcomes = {
     "NoCredentialHandler": {
         "Plaintext": [
-            "Password Type: Plaintext (insecure)",
-            "Parameter: Password Type = Plaintext [FAIL]",
-            "Parameter: CredentialHandler = None [FAIL]",
-            "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "Plaintext passwords detected in tomcat-users.xml"
+            "- User 'testuser': Plaintext password (insecure)",
+            "  - Parameter: Password Type = Plaintext [FAIL]",
+            "  - Parameter: CredentialHandler = None [FAIL]",
+            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
+            "    - Plaintext passwords detected in tomcat-users.xml"
         ],
         "Hashed_MD5": [
-            "Password Type: Hashed_MD5 (insecure)",
-            "Parameter: Password Type = Hashed_MD5 [FAIL]",
-            "Parameter: CredentialHandler = None [FAIL]",
-            "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "Weak password hashing (Hashed_MD5) detected"
+            "- User 'testuser': Hashed_MD5 password (insecure)",
+            "  - Parameter: Password Type = Hashed_MD5 [FAIL]",
+            "  - Parameter: CredentialHandler = None [FAIL]",
+            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
+            "    - Weak password hashing (Hashed_MD5) detected"
         ],
         "Hashed_SHA1": [
-            "Password Type: Hashed_SHA1 (insecure)",
-            "Parameter: Password Type = Hashed_SHA1 [FAIL]",
-            "Parameter: CredentialHandler = None [FAIL]",
-            "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "Weak password hashing (SHA-1) detected"
+            "- User 'testuser': Hashed_SHA1 password (insecure)",
+            "  - Parameter: Password Type = Hashed_SHA1 [FAIL]",
+            "  - Parameter: CredentialHandler = None [FAIL]",
+            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
+            "    - Weak password hashing (SHA-1) detected"
         ],
         "Hashed_SHA256": [
-            "Password Type: Hashed_SHA256 (secure)",
-            "Parameter: Password Type = Hashed_SHA256 [PASS]",
-            "Parameter: CredentialHandler = None [FAIL]",
-            "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "Hashed_SHA256 passwords should use salt and iterations"
+            "- User 'testuser': Hashed_SHA256 password (secure)",
+            "  - Parameter: Password Type = Hashed_SHA256 [PASS]",
+            "  - Parameter: CredentialHandler = None [FAIL]",
+            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
+            "    - Hashed_SHA256 passwords should use salt and iterations"
         ],
         "Hashed_SHA512": [
-            "Password Type: Hashed_SHA512 (secure)",
-            "Parameter: Password Type = Hashed_SHA512 [PASS]",
-            "Parameter: CredentialHandler = None [FAIL]",
-            "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "Hashed_SHA512 passwords should use salt and iterations"
+            "- User 'testuser': Hashed_SHA512 password (secure)",
+            "  - Parameter: Password Type = Hashed_SHA512 [PASS]",
+            "  - Parameter: CredentialHandler = None [FAIL]",
+            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
+            "    - Hashed_SHA512 passwords should use salt and iterations"
         ],
         "Salted_MD5": [
-            "Password Type: Salted_MD5 (insecure)",
-            "Parameter: Password Type = Salted_MD5 [FAIL]",
-            "Parameter: CredentialHandler = None [FAIL]",
-            "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "Weak password hashing (Salted_MD5) detected"
+            "- User 'testuser': Salted_MD5 password (insecure)",
+            "  - Parameter: Password Type = Salted_MD5 [FAIL]",
+            "  - Parameter: CredentialHandler = None [FAIL]",
+            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
+            "    - Weak password hashing (Salted_MD5) detected"
         ],
         "Salted_PBKDF2": [
-            "Password Type: Salted_PBKDF2 (secure)",
-            "Parameter: Password Type = Salted_PBKDF2 [PASS]",
-            "Parameter: CredentialHandler = None [FAIL]",
-            "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "Salted_PBKDF2 requires SecretKeyCredentialHandler with PBKDF2"
+            "- User 'testuser': Salted_PBKDF2 password (secure)",
+            "  - Parameter: Password Type = Salted_PBKDF2 [PASS]",
+            "  - Parameter: CredentialHandler = None [FAIL]",
+            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
+            "    - Salted_PBKDF2 requires SecretKeyCredentialHandler with PBKDF2"
         ]
     },
     "MessageDigestCredentialHandler_MD5": {
         "Plaintext": [
-            "Password Type: Plaintext (insecure)",
-            "Parameter: Password Type = Plaintext [FAIL]",
-            "Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "Parameter: Algorithm = MD5 [FAIL]",
-            "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "Plaintext passwords detected in tomcat-users.xml"
+            "- User 'testuser': Plaintext password (insecure)",
+            "  - Parameter: Password Type = Plaintext [FAIL]",
+            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
+            "  - Parameter: Algorithm = MD5 [FAIL]",
+            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
+            "    - Plaintext passwords detected in tomcat-users.xml"
         ],
         "Hashed_MD5": [
-            "Password Type: Hashed_MD5 (insecure)",
-            "Parameter: Password Type = Hashed_MD5 [FAIL]",
-            "Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "Parameter: Algorithm = MD5 [FAIL]",
-            "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "Weak password hashing (Hashed_MD5) detected"
+            "- User 'testuser': Hashed_MD5 password (insecure)",
+            "  - Parameter: Password Type = Hashed_MD5 [FAIL]",
+            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
+            "  - Parameter: Algorithm = MD5 [FAIL]",
+            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
+            "    - Weak password hashing (Hashed_MD5) detected"
         ],
         "Hashed_SHA1": [
-            "Password Type: Hashed_SHA1 (insecure)",
-            "Parameter: Password Type = Hashed_SHA1 [FAIL]",
-            "Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "Parameter: Algorithm = MD5 [FAIL]",
-            "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "Weak password hashing (SHA-1) detected"
+            "- User 'testuser': Hashed_SHA1 password (insecure)",
+            "  - Parameter: Password Type = Hashed_SHA1 [FAIL]",
+            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
+            "  - Parameter: Algorithm = MD5 [FAIL]",
+            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
+            "    - Weak password hashing (SHA-1) detected"
         ],
         "Hashed_SHA256": [
-            "Password Type: Hashed_SHA256 (secure)",
-            "Parameter: Password Type = Hashed_SHA256 [PASS]",
-            "Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "Parameter: Algorithm = MD5 [FAIL]",
-            "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "Hashed_SHA256 passwords should use salt and iterations"
+            "- User 'testuser': Hashed_SHA256 password (secure)",
+            "  - Parameter: Password Type = Hashed_SHA256 [PASS]",
+            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
+            "  - Parameter: Algorithm = MD5 [FAIL]",
+            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
+            "    - Hashed_SHA256 passwords should use salt and iterations"
         ],
         "Hashed_SHA512": [
-            "Password Type: Hashed_SHA512 (secure)",
-            "Parameter: Password Type = Hashed_SHA512 [PASS]",
-            "Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "Parameter: Algorithm = MD5 [FAIL]",
-            "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "Hashed_SHA512 passwords should use salt and iterations"
+            "- User 'testuser': Hashed_SHA512 password (secure)",
+            "  - Parameter: Password Type = Hashed_SHA512 [PASS]",
+            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
+            "  - Parameter: Algorithm = MD5 [FAIL]",
+            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
+            "    - Hashed_SHA512 passwords should use salt and iterations"
         ],
         "Salted_MD5": [
-            "Password Type: Salted_MD5 (insecure)",
-            "Parameter: Password Type = Salted_MD5 [FAIL]",
-            "Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "Parameter: Algorithm = MD5 [FAIL]",
-            "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "Weak password hashing (Salted_MD5) detected"
+            "- User 'testuser': Salted_MD5 password (insecure)",
+            "  - Parameter: Password Type = Salted_MD5 [FAIL]",
+            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
+            "  - Parameter: Algorithm = MD5 [FAIL]",
+            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
+            "    - Weak password hashing (Salted_MD5) detected"
         ],
         "Salted_PBKDF2": [
-            "Password Type: Salted_PBKDF2 (secure)",
-            "Parameter: Password Type = Salted_PBKDF2 [PASS]",
-            "Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "Parameter: Algorithm = MD5 [FAIL]",
-            "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "Salted_PBKDF2 requires SecretKeyCredentialHandler with PBKDF2"
+            "- User 'testuser': Salted_PBKDF2 password (secure)",
+            "  - Parameter: Password Type = Salted_PBKDF2 [PASS]",
+            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
+            "  - Parameter: Algorithm = MD5 [FAIL]",
+            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
+            "    - Salted_PBKDF2 requires SecretKeyCredentialHandler with PBKDF2"
         ]
     },
     "MessageDigestCredentialHandler_SHA256": {
         "Plaintext": [
-            "Password Type: Plaintext (insecure)",
-            "Parameter: Password Type = Plaintext [FAIL]",
-            "Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "Parameter: Algorithm = SHA-256 [PASS]",
-            "Parameter: Iterations = 10000 [PASS]",
-            "Parameter: Salt Length = 16 [PASS]",
-            "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "Plaintext passwords detected in tomcat-users.xml"
+            "- User 'testuser': Plaintext password (insecure)",
+            "  - Parameter: Password Type = Plaintext [FAIL]",
+            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
+            "  - Parameter: Algorithm = SHA-256 [PASS]",
+            "  - Parameter: Iterations = 10000 [PASS]",
+            "  - Parameter: Salt Length = 16 [PASS]",
+            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
+            "    - Plaintext passwords detected in tomcat-users.xml"
         ],
         "Hashed_MD5": [
-            "Password Type: Hashed_MD5 (insecure)",
-            "Parameter: Password Type = Hashed_MD5 [FAIL]",
-            "Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "Parameter: Algorithm = SHA-256 [PASS]",
-            "Parameter: Iterations = 10000 [PASS]",
-            "Parameter: Salt Length = 16 [PASS]",
-            "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "Weak password hashing (Hashed_MD5) detected"
+            "- User 'testuser': Hashed_MD5 password (insecure)",
+            "  - Parameter: Password Type = Hashed_MD5 [FAIL]",
+            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
+            "  - Parameter: Algorithm = SHA-256 [PASS]",
+            "  - Parameter: Iterations = 10000 [PASS]",
+            "  - Parameter: Salt Length = 16 [PASS]",
+            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
+            "    - Weak password hashing (Hashed_MD5) detected"
         ],
         "Hashed_SHA1": [
-            "Password Type: Hashed_SHA1 (insecure)",
-            "Parameter: Password Type = Hashed_SHA1 [FAIL]",
-            "Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "Parameter: Algorithm = SHA-256 [PASS]",
-            "Parameter: Iterations = 10000 [PASS]",
-            "Parameter: Salt Length = 16 [PASS]",
-            "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "Weak password hashing (SHA-1) detected"
+            "- User 'testuser': Hashed_SHA1 password (insecure)",
+            "  - Parameter: Password Type = Hashed_SHA1 [FAIL]",
+            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
+            "  - Parameter: Algorithm = SHA-256 [PASS]",
+            "  - Parameter: Iterations = 10000 [PASS]",
+            "  - Parameter: Salt Length = 16 [PASS]",
+            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
+            "    - Weak password hashing (SHA-1) detected"
         ],
         "Hashed_SHA256": [
-            "Password Type: Hashed_SHA256 (secure)",
-            "Parameter: Password Type = Hashed_SHA256 [PASS]",
-            "Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "Parameter: Algorithm = SHA-256 [PASS]",
-            "Parameter: Iterations = 10000 [PASS]",
-            "Parameter: Salt Length = 16 [PASS]",
-            "Status: Compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark"
+            "- User 'testuser': Hashed_SHA256 password (secure)",
+            "  - Parameter: Password Type = Hashed_SHA256 [PASS]",
+            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
+            "  - Parameter: Algorithm = SHA-256 [PASS]",
+            "  - Parameter: Iterations = 10000 [PASS]",
+            "  - Parameter: Salt Length = 16 [PASS]",
+            "  - Status: Compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark"
         ],
         "Hashed_SHA512": [
-            "Password Type: Hashed_SHA512 (secure)",
-            "Parameter: Password Type = Hashed_SHA512 [PASS]",
-            "Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "Parameter: Algorithm = SHA-256 [PASS]",
-            "Parameter: Iterations = 10000 [PASS]",
-            "Parameter: Salt Length = 16 [PASS]",
-            "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "Hashed_SHA512 passwords should use salt and iterations"
+            "- User 'testuser': Hashed_SHA512 password (secure)",
+            "  - Parameter: Password Type = Hashed_SHA512 [PASS]",
+            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
+            "  - Parameter: Algorithm = SHA-256 [PASS]",
+            "  - Parameter: Iterations = 10000 [PASS]",
+            "  - Parameter: Salt Length = 16 [PASS]",
+            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
+            "    - Hashed_SHA512 passwords should use salt and iterations"
         ],
         "Salted_MD5": [
-            "Password Type: Salted_MD5 (insecure)",
-            "Parameter: Password Type = Salted_MD5 [FAIL]",
-            "Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "Parameter: Algorithm = SHA-256 [PASS]",
-            "Parameter: Iterations = 10000 [PASS]",
-            "Parameter: Salt Length = 16 [PASS]",
-            "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "Weak password hashing (Salted_MD5) detected"
+            "- User 'testuser': Salted_MD5 password (insecure)",
+            "  - Parameter: Password Type = Salted_MD5 [FAIL]",
+            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
+            "  - Parameter: Algorithm = SHA-256 [PASS]",
+            "  - Parameter: Iterations = 10000 [PASS]",
+            "  - Parameter: Salt Length = 16 [PASS]",
+            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
+            "    - Weak password hashing (Salted_MD5) detected"
         ],
         "Salted_PBKDF2": [
-            "Password Type: Salted_PBKDF2 (secure)",
-            "Parameter: Password Type = Salted_PBKDF2 [PASS]",
-            "Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "Parameter: Algorithm = SHA-256 [PASS]",
-            "Parameter: Iterations = 10000 [PASS]",
-            "Parameter: Salt Length = 16 [PASS]",
-            "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "Salted_PBKDF2 requires SecretKeyCredentialHandler with PBKDF2"
+            "- User 'testuser': Salted_PBKDF2 password (secure)",
+            "  - Parameter: Password Type = Salted_PBKDF2 [PASS]",
+            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
+            "  - Parameter: Algorithm = SHA-256 [PASS]",
+            "  - Parameter: Iterations = 10000 [PASS]",
+            "  - Parameter: Salt Length = 16 [PASS]",
+            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
+            "    - Salted_PBKDF2 requires SecretKeyCredentialHandler with PBKDF2"
         ]
     },
     "MessageDigestCredentialHandler_SHA512": {
         "Plaintext": [
-            "Password Type: Plaintext (insecure)",
-            "Parameter: Password Type = Plaintext [FAIL]",
-            "Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "Parameter: Algorithm = SHA-512 [PASS]",
-            "Parameter: Iterations = 10000 [PASS]",
-            "Parameter: Salt Length = 16 [PASS]",
-            "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "Plaintext passwords detected in tomcat-users.xml"
+            "- User 'testuser': Plaintext password (insecure)",
+            "  - Parameter: Password Type = Plaintext [FAIL]",
+            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
+            "  - Parameter: Algorithm = SHA-512 [PASS]",
+            "  - Parameter: Iterations = 10000 [PASS]",
+            "  - Parameter: Salt Length = 16 [PASS]",
+            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
+            "    - Plaintext passwords detected in tomcat-users.xml"
         ],
         "Hashed_MD5": [
-            "Password Type: Hashed_MD5 (insecure)",
-            "Parameter: Password Type = Hashed_MD5 [FAIL]",
-            "Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "Parameter: Algorithm = SHA-512 [PASS]",
-            "Parameter: Iterations = 10000 [PASS]",
-            "Parameter: Salt Length = 16 [PASS]",
-            "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "Weak password hashing (Hashed_MD5) detected"
+            "- User 'testuser': Hashed_MD5 password (insecure)",
+            "  - Parameter: Password Type = Hashed_MD5 [FAIL]",
+            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
+            "  - Parameter: Algorithm = SHA-512 [PASS]",
+            "  - Parameter: Iterations = 10000 [PASS]",
+            "  - Parameter: Salt Length = 16 [PASS]",
+            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
+            "    - Weak password hashing (Hashed_MD5) detected"
         ],
         "Hashed_SHA1": [
-            "Password Type: Hashed_SHA1 (insecure)",
-            "Parameter: Password Type = Hashed_SHA1 [FAIL]",
-            "Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "Parameter: Algorithm = SHA-512 [PASS]",
-            "Parameter: Iterations = 10000 [PASS]",
-            "Parameter: Salt Length = 16 [PASS]",
-            "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "Weak password hashing (SHA-1) detected"
+            "- User 'testuser': Hashed_SHA1 password (insecure)",
+            "  - Parameter: Password Type = Hashed_SHA1 [FAIL]",
+            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
+            "  - Parameter: Algorithm = SHA-512 [PASS]",
+            "  - Parameter: Iterations = 10000 [PASS]",
+            "  - Parameter: Salt Length = 16 [PASS]",
+            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
+            "    - Weak password hashing (SHA-1) detected"
         ],
         "Hashed_SHA256": [
-            "Password Type: Hashed_SHA256 (secure)",
-            "Parameter: Password Type = Hashed_SHA256 [PASS]",
-            "Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "Parameter: Algorithm = SHA-512 [PASS]",
-            "Parameter: Iterations = 10000 [PASS]",
-            "Parameter: Salt Length = 16 [PASS]",
-            "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "Hashed_SHA256 passwords should use salt and iterations"
+            "- User 'testuser': Hashed_SHA256 password (secure)",
+            "  - Parameter: Password Type = Hashed_SHA256 [PASS]",
+            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
+            "  - Parameter: Algorithm = SHA-512 [PASS]",
+            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
+            "    - Hashed_SHA256 passwords should use salt and iterations"
         ],
         "Hashed_SHA512": [
-            "Password Type: Hashed_SHA512 (secure)",
-            "Parameter: Password Type = Hashed_SHA512 [PASS]",
-            "Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "Parameter: Algorithm = SHA-512 [PASS]",
-            "Parameter: Iterations = 10000 [PASS]",
-            "Parameter: Salt Length = 16 [PASS]",
-            "Status: Compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark"
+            "- User 'testuser': Hashed_SHA512 password (secure)",
+            "  - Parameter: Password Type = Hashed_SHA512 [PASS]",
+            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
+            "  - Parameter: Algorithm = SHA-512 [PASS]",
+            "  - Parameter: Iterations = 10000 [PASS]",
+            "  - Parameter: Salt Length = 16 [PASS]",
+            "  - Status: Compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark"
         ],
         "Salted_MD5": [
-            "Password Type: Salted_MD5 (insecure)",
-            "Parameter: Password Type = Salted_MD5 [FAIL]",
-            "Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "Parameter: Algorithm = SHA-512 [PASS]",
-            "Parameter: Iterations = 10000 [PASS]",
-            "Parameter: Salt Length = 16 [PASS]",
-            "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "Weak password hashing (Salted_MD5) detected"
+            "- User 'testuser': Salted_MD5 password (insecure)",
+            "  - Parameter: Password Type = Salted_MD5 [FAIL]",
+            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
+            "  - Parameter: Algorithm = SHA-512 [PASS]",
+            "  - Parameter: Iterations = 10000 [PASS]",
+            "  - Parameter: Salt Length = 16 [PASS]",
+            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
+            "    - Weak password hashing (Salted_MD5) detected"
         ],
         "Salted_PBKDF2": [
-            "Password Type: Salted_PBKDF2 (secure)",
-            "Parameter: Password Type = Salted_PBKDF2 [PASS]",
-            "Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "Parameter: Algorithm = SHA-512 [PASS]",
-            "Parameter: Iterations = 10000 [PASS]",
-            "Parameter: Salt Length = 16 [PASS]",
-            "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "Salted_PBKDF2 requires SecretKeyCredentialHandler with PBKDF2"
+            "- User 'testuser': Salted_PBKDF2 password (secure)",
+            "  - Parameter: Password Type = Salted_PBKDF2 [PASS]",
+            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
+            "  - Parameter: Algorithm = SHA-512 [PASS]",
+            "  - Parameter: Iterations = 10000 [PASS]",
+            "  - Parameter: Salt Length = 16 [PASS]",
+            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
+            "    - Salted_PBKDF2 requires SecretKeyCredentialHandler with PBKDF2"
         ]
     },
     "NestedCredentialHandler": {
         "Plaintext": [
-            "Password Type: Plaintext (insecure)",
-            "Parameter: Password Type = Plaintext [FAIL]",
-            "Parameter: CredentialHandler = org.apache.catalina.realm.NestedCredentialHandler [PASS]",
-            "Parameter: Algorithm = SHA-256 [PASS]",
-            "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "Plaintext passwords detected in tomcat-users.xml"
+            "- User 'testuser': Plaintext password (insecure)",
+            "  - Parameter: Password Type = Plaintext [FAIL]",
+            "  - Parameter: CredentialHandler = org.apache.catalina.realm.NestedCredentialHandler [PASS]",
+            "  - Parameter: Algorithm = SHA-256 [PASS]",
+            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
+            "    - Plaintext passwords detected in tomcat-users.xml"
         ],
         "Hashed_MD5": [
-            "Password Type: Hashed_MD5 (insecure)",
-            "Parameter: Password Type = Hashed_MD5 [FAIL]",
-            "Parameter: CredentialHandler = org.apache.catalina.realm.NestedCredentialHandler [PASS]",
-            "Parameter: Algorithm = SHA-256 [PASS]",
-            "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "Weak password hashing (Hashed_MD5) detected"
+            "- User 'testuser': Hashed_MD5 password (insecure)",
+            "  - Parameter: Password Type = Hashed_MD5 [FAIL]",
+            "  - Parameter: CredentialHandler = org.apache.catalina.realm.NestedCredentialHandler [PASS]",
+            "  - Parameter: Algorithm = SHA-256 [PASS]",
+            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
+            "    - Weak password hashing (Hashed_MD5) detected"
         ],
         "Hashed_SHA1": [
-            "Password Type: Hashed_SHA1 (insecure)",
-            "Parameter: Password Type = Hashed_SHA1 [FAIL]",
-            "Parameter: CredentialHandler = org.apache.catalina.realm.NestedCredentialHandler [PASS]",
-            "Parameter: Algorithm = SHA-256 [PASS]",
-            "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "Weak password hashing (SHA-1) detected"
+            "- User 'testuser': Hashed_SHA1 password (insecure)",
+            "  - Parameter: Password Type = Hashed_SHA1 [FAIL]",
+            "  - Parameter: CredentialHandler = org.apache.catalina.realm.NestedCredentialHandler [PASS]",
+            "  - Parameter: Algorithm = SHA-256 [PASS]",
+            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
+            "    - Weak password hashing (SHA-1) detected"
         ],
         "Hashed_SHA256": [
-            "Password Type: Hashed_SHA256 (secure)",
-            "Parameter: Password Type = Hashed_SHA256 [PASS]",
-            "Parameter: CredentialHandler = org.apache.catalina.realm.NestedCredentialHandler [PASS]",
-            "Parameter: Algorithm = SHA-256 [PASS]",
-            "Status: Compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark"
+            "- User 'testuser': Hashed_SHA256 password (secure)",
+            "  - Parameter: Password Type = Hashed_SHA256 [PASS]",
+            "  - Parameter: CredentialHandler = org.apache.catalina.realm.NestedCredentialHandler [PASS]",
+            "  - Parameter: Algorithm = SHA-256 [PASS]",
+            "  - Status: Compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark"
         ],
         "Hashed_SHA512": [
-            "Password Type: Hashed_SHA512 (secure)",
-            "Parameter: Password Type = Hashed_SHA512 [PASS]",
-            "Parameter: CredentialHandler = org.apache.catalina.realm.NestedCredentialHandler [PASS]",
-            "Parameter: Algorithm = SHA-256 [PASS]",
-            "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "Hashed_SHA512 passwords should use salt and iterations"
+            "- User 'testuser': Hashed_SHA512 password (secure)",
+            "  - Parameter: Password Type = Hashed_SHA512 [PASS]",
+            "  - Parameter: CredentialHandler = org.apache.catalina.realm.NestedCredentialHandler [PASS]",
+            "  - Parameter: Algorithm = SHA-256 [PASS]",
+            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
+            "    - Hashed_SHA512 passwords should use salt and iterations"
         ],
         "Salted_MD5": [
-            "Password Type: Salted_MD5 (insecure)",
-            "Parameter: Password Type = Salted_MD5 [FAIL]",
-            "Parameter: CredentialHandler = org.apache.catalina.realm.NestedCredentialHandler [PASS]",
-            "Parameter: Algorithm = SHA-256 [PASS]",
-            "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "Weak password hashing (Salted_MD5) detected"
+            "- User 'testuser': Salted_MD5 password (insecure)",
+            "  - Parameter: Password Type = Salted_MD5 [FAIL]",
+            "  - Parameter: CredentialHandler = org.apache.catalina.realm.NestedCredentialHandler [PASS]",
+            "  - Parameter: Algorithm = SHA-256 [PASS]",
+            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
+            "    - Weak password hashing (Salted_MD5) detected"
         ],
         "Salted_PBKDF2": [
-            "Password Type: Salted_PBKDF2 (secure)",
-            "Parameter: Password Type = Salted_PBKDF2 [PASS]",
-            "Parameter: CredentialHandler = org.apache.catalina.realm.NestedCredentialHandler [PASS]",
-            "Parameter: Algorithm = SHA-256 [PASS]",
-            "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "Salted_PBKDF2 requires SecretKeyCredentialHandler with PBKDF2"
+            "- User 'testuser': Salted_PBKDF2 password (secure)",
+            "  - Parameter: Password Type = Salted_PBKDF2 [PASS]",
+            "  - Parameter: CredentialHandler = org.apache.catalina.realm.NestedCredentialHandler [PASS]",
+            "  - Parameter: Algorithm = SHA-256 [PASS]",
+            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
+            "    - Salted_PBKDF2 requires SecretKeyCredentialHandler with PBKDF2"
         ]
     },
     "SecretKeyCredentialHandler_PBKDF2": {
         "Plaintext": [
-            "Password Type: Plaintext (insecure)",
-            "Parameter: Password Type = Plaintext [FAIL]",
-            "Parameter: CredentialHandler = org.apache.catalina.realm.SecretKeyCredentialHandler [PASS]",
-            "Parameter: Algorithm = PBKDF2WithHmacSHA512 [PASS]",
-            "Parameter: Iterations = 10000 [PASS]",
-            "Parameter: Salt Length = 16 [PASS]",
-            "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "Plaintext passwords detected in tomcat-users.xml"
+            "- User 'testuser': Plaintext password (insecure)",
+            "  - Parameter: Password Type = Plaintext [FAIL]",
+            "  - Parameter: CredentialHandler = org.apache.catalina.realm.SecretKeyCredentialHandler [PASS]",
+            "  - Parameter: Algorithm = PBKDF2WithHmacSHA512 [PASS]",
+            "  - Parameter: Iterations = 10000 [PASS]",
+            "  - Parameter: Salt Length = 16 [PASS]",
+            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
+            "    - Plaintext passwords detected in tomcat-users.xml"
         ],
         "Hashed_MD5": [
-            "Password Type: Hashed_MD5 (insecure)",
-            "Parameter: Password Type = Hashed_MD5 [FAIL]",
-            "Parameter: CredentialHandler = org.apache.catalina.realm.SecretKeyCredentialHandler [PASS]",
-            "Parameter: Algorithm = PBKDF2WithHmacSHA512 [PASS]",
-            "Parameter: Iterations = 10000 [PASS]",
-            "Parameter: Salt Length = 16 [PASS]",
-            "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "Weak password hashing (Hashed_MD5) detected"
+            "- User 'testuser': Hashed_MD5 password (insecure)",
+            "  - Parameter: Password Type = Hashed_MD5 [FAIL]",
+            "  - Parameter: CredentialHandler = org.apache.catalina.realm.SecretKeyCredentialHandler [PASS]",
+            "  - Parameter: Algorithm = PBKDF2WithHmacSHA512 [PASS]",
+            "  - Parameter: Iterations = 10000 [PASS]",
+            "  - Parameter: Salt Length = 16 [PASS]",
+            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
+            "    - Weak password hashing (Hashed_MD5) detected"
         ],
         "Hashed_SHA1": [
-            "Password Type: Hashed_SHA1 (insecure)",
-            "Parameter: Password Type = Hashed_SHA1 [FAIL]",
-            "Parameter: CredentialHandler = org.apache.catalina.realm.SecretKeyCredentialHandler [PASS]",
-            "Parameter: Algorithm = PBKDF2WithHmacSHA512 [PASS]",
-            "Parameter: Iterations = 10000 [PASS]",
-            "Parameter: Salt Length = 16 [PASS]",
-            "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "Weak password hashing (SHA-1) detected"
+            "- User 'testuser': Hashed_SHA1 password (insecure)",
+            "  - Parameter: Password Type = Hashed_SHA1 [FAIL]",
+            "  - Parameter: CredentialHandler = org.apache.catalina.realm.SecretKeyCredentialHandler [PASS]",
+            "  - Parameter: Algorithm = PBKDF2WithHmacSHA512 [PASS]",
+            "  - Parameter: Iterations = 10000 [PASS]",
+            "  - Parameter: Salt Length = 16 [PASS]",
+            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
+            "    - Weak password hashing (SHA-1) detected"
         ],
         "Hashed_SHA256": [
-            "Password Type: Hashed_SHA256 (secure)",
-            "Parameter: Password Type = Hashed_SHA256 [PASS]",
-            "Parameter: CredentialHandler = org.apache.catalina.realm.SecretKeyCredentialHandler [PASS]",
-            "Parameter: Algorithm = PBKDF2WithHmacSHA512 [PASS]",
-            "Parameter: Iterations = 10000 [PASS]",
-            "Parameter: Salt Length = 16 [PASS]",
-            "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "Hashed_SHA256 passwords should use salt and iterations"
+            "- User 'testuser': Hashed_SHA256 password (secure)",
+            "  - Parameter: Password Type = Hashed_SHA256 [PASS]",
+            "  - Parameter: CredentialHandler = org.apache.catalina.realm.SecretKeyCredentialHandler [PASS]",
+            "  - Parameter: Algorithm = PBKDF2WithHmacSHA512 [PASS]",
+            "  - Parameter: Iterations = 10000 [PASS]",
+            "  - Parameter: Salt Length = 16 [PASS]",
+            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
+            "    - Hashed_SHA256 passwords should use salt and iterations"
         ],
         "Hashed_SHA512": [
-            "Password Type: Hashed_SHA512 (secure)",
-            "Parameter: Password Type = Hashed_SHA512 [PASS]",
-            "Parameter: CredentialHandler = org.apache.catalina.realm.SecretKeyCredentialHandler [PASS]",
-            "Parameter: Algorithm = PBKDF2WithHmacSHA512 [PASS]",
-            "Parameter: Iterations = 10000 [PASS]",
-            "Parameter: Salt Length = 16 [PASS]",
-            "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "Hashed_SHA512 passwords should use salt and iterations"
+            "- User 'testuser': Hashed_SHA512 password (secure)",
+            "  - Parameter: Password Type = Hashed_SHA512 [PASS]",
+            "  - Parameter: CredentialHandler = org.apache.catalina.realm.SecretKeyCredentialHandler [PASS]",
+            "  - Parameter: Algorithm = PBKDF2WithHmacSHA512 [PASS]",
+            "  - Parameter: Iterations = 10000 [PASS]",
+            "  - Parameter: Salt Length = 16 [PASS]",
+            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
+            "    - Hashed_SHA512 passwords should use salt and iterations"
         ],
         "Salted_MD5": [
-            "Password Type: Salted_MD5 (insecure)",
-            "Parameter: Password Type = Salted_MD5 [FAIL]",
-            "Parameter: CredentialHandler = org.apache.catalina.realm.SecretKeyCredentialHandler [PASS]",
-            "Parameter: Algorithm = PBKDF2WithHmacSHA512 [PASS]",
-            "Parameter: Iterations = 10000 [PASS]",
-            "Parameter: Salt Length = 16 [PASS]",
-            "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "Weak password hashing (Salted_MD5) detected"
+            "- User 'testuser': Salted_MD5 password (insecure)",
+            "  - Parameter: Password Type = Salted_MD5 [FAIL]",
+            "  - Parameter: CredentialHandler = org.apache.catalina.realm.SecretKeyCredentialHandler [PASS]",
+            "  - Parameter: Algorithm = PBKDF2WithHmacSHA512 [PASS]",
+            "  - Parameter: Iterations = 10000 [PASS]",
+            "  - Parameter: Salt Length = 16 [PASS]",
+            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
+            "    - Weak password hashing (Salted_MD5) detected"
         ],
         "Salted_PBKDF2": [
-            "Password Type: Salted_PBKDF2 (secure)",
-            "Parameter: Password Type = Salted_PBKDF2 [PASS]",
-            "Parameter: CredentialHandler = org.apache.catalina.realm.SecretKeyCredentialHandler [PASS]",
-            "Parameter: Algorithm = PBKDF2WithHmacSHA512 [PASS]",
-            "Parameter: Iterations = 10000 [PASS]",
-            "Parameter: Salt Length = 16 [PASS]",
-            "Status: Compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark"
+            "- User 'testuser': Salted_PBKDF2 password (secure)",
+            "  - Parameter: Password Type = Salted_PBKDF2 [PASS]",
+            "  - Parameter: CredentialHandler = org.apache.catalina.realm.SecretKeyCredentialHandler [PASS]",
+            "  - Parameter: Algorithm = PBKDF2WithHmacSHA512 [PASS]",
+            "  - Parameter: Iterations = 10000 [PASS]",
+            "  - Parameter: Salt Length = 16 [PASS]",
+            "  - Status: Compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark"
         ]
     }
 }
@@ -558,7 +558,7 @@ for server_test in server_tests:
             continue
 
         test_name = f"{tomcat_version}_{server_test}_{password_test}"
-        write_log(f"Running test: {test_name} for Tomcat {tomcat_version}", 1)
+        write_log(f"Test: {test_name}", 1, console_only=True)
         write_log(f"Description: Testing {password_test} password with {server_test} CredentialHandler", 2)
 
         # Modify server.xml
@@ -606,36 +606,55 @@ for server_test in server_tests:
 
         # Expected output
         expected = expected_outcomes[server_test][password_test]
-        write_log(f"Expected output: {', '.join(expected)}", 2)
+        write_log("Expected output:", 2)
+        for line in expected:
+            write_log(line, 2, console_only=True)
 
         # Run CheckTomcatConfigUnix.py
         result = subprocess.run(["python3", "./CheckTomcatConfigUnix.py"], capture_output=True, text=True)
         output_lines = [line.strip() for line in result.stdout.split("\n") if line.strip()]
+        filtered_output = [
+            line for line in output_lines
+            if any(keyword in line for keyword in [
+                "User 'testuser'",
+                "Parameter:",
+                "Status:",
+                "Plaintext passwords detected",
+                "Weak password hashing",
+                "Hashed_SHA256 passwords should use salt",
+                "Hashed_SHA512 passwords should use salt",
+                "Salted_PBKDF2 requires SecretKeyCredentialHandler"
+            ])
+        ]
+        write_log("Actual output:", 2)
+        for line in filtered_output:
+            write_log(line, 2, console_only=True)
         if result.stderr:
             write_log(f"Error output: {result.stderr}", 2)
-        write_log(f"Actual output: {', '.join(output_lines)}", 2)
 
         # Validate test
         test_results["total"] += 1
-        passed = all(exp in result.stdout for exp in expected)
+        passed = all(exp in filtered_output for exp in expected)
         if passed:
-            write_log(f"Test {test_name}: PASSED", 2)
+            write_log(f"Result: PASSED", 2, console_only=True)
             test_results["passed"] += 1
         else:
-            write_log(f"Test {test_name}: FAILED (Expected: {expected}, Got: {output_lines})", 2)
+            write_log(f"Result: FAILED", 2, console_only=True)
+            write_log(f"Expected: {expected}", 3)
+            write_log(f"Got: {filtered_output}", 3)
             test_results["failed"] += 1
 
 # Restore original files
 shutil.copy(os.path.join(backup_dir, "server.xml.bak"), server_xml)
 shutil.copy(os.path.join(backup_dir, "tomcat-users.xml.bak"), users_xml)
-write_log("Restored original configuration files")
+write_log("Restored original configuration files", console_only=True)
 
 # Summary report
-write_log("Test Summary:")
-write_log(f"Total tests run: {test_results['total']}", 1)
-write_log(f"Tests passed: {test_results['passed']}", 1)
-write_log(f"Tests failed: {test_results['failed']}", 1)
-write_log("All tests completed")
+write_log("Test Summary:", console_only=True)
+write_log(f"Total tests run: {test_results['total']}", 1, console_only=True)
+write_log(f"Tests passed: {test_results['passed']}", 1, console_only=True)
+write_log(f"Tests failed: {test_results['failed']}", 1, console_only=True)
+write_log("All tests completed", console_only=True)
 
 if test_results["failed"] > 0:
     sys.exit(1)
