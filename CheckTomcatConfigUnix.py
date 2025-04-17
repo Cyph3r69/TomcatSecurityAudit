@@ -197,7 +197,7 @@ for user in users:
     elif password_type == "Hashed_SHA256":
         if tomcat_version == "7.0":
             write_log("Status: Compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark for Tomcat 7.0", 3)
-        elif not credential_handler or algorithm != "SHA-256" or iterations < 10000 or salt_length < 16:
+        elif credential_handler is None or algorithm != "SHA-256" or iterations < 10000 or salt_length < 16:
             write_log("Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark", 3)
             write_log("Hashed_SHA256 passwords should use salt and iterations", 4)
             write_log("Recommendation: Configure MessageDigestCredentialHandler with saltLength >= 16 and iterations >= 10000", 4)
@@ -210,7 +210,7 @@ for user in users:
             write_log("SHA-512 not supported in Tomcat 7.0", 4)
             write_log("Recommendation: Use SHA-256", 4)
             is_secure = False
-        elif not credential_handler or algorithm != "SHA-512" or iterations < 10000 or salt_length < 16:
+        elif credential_handler is None or algorithm != "SHA-512" or iterations < 10000 or salt_length < 16:
             write_log("Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark", 3)
             write_log("Hashed_SHA512 passwords should use salt and iterations", 4)
             write_log("Recommendation: Configure MessageDigestCredentialHandler with saltLength >= 16 and iterations >= 10000", 4)
@@ -224,7 +224,7 @@ for user in users:
             write_log("Recommendation: Use SHA-256", 4)
             is_secure = False
         elif tomcat_version == "8.5":
-            if not credential_handler or algorithm not in ["SHA-256", "SHA-512"] or iterations < 10000 or salt_length < 16:
+            if credential_handler is None or algorithm not in ["SHA-256", "SHA-512"] or iterations < 10000 or salt_length < 16:
                 write_log("Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark", 3)
                 write_log("Salted_PBKDF2 requires compatible MessageDigestCredentialHandler", 4)
                 write_log("Recommendation: Configure MessageDigestCredentialHandler with SHA-256/SHA-512, saltLength >= 16, iterations >= 10000", 4)
@@ -232,7 +232,7 @@ for user in users:
             else:
                 write_log("Status: Compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark", 3)
         else:  # Tomcat 9.0
-            if credential_handler and handler_class == "org.apache.catalina.realm.SecretKeyCredentialHandler" and \
+            if credential_handler is not None and handler_class == "org.apache.catalina.realm.SecretKeyCredentialHandler" and \
                algorithm == "PBKDF2WithHmacSHA512" and iterations >= 10000 and salt_length >= 16:
                 write_log("Status: Compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark", 3)
             else:
