@@ -118,15 +118,24 @@ install_tomcat() {
 
     # Verify Java installation
     log "Verifying Java installation..."
-    if ! java -version 2>&1 | grep -q "${JAVA_VERSION}\."; then
-        log "ERROR: Java ${JAVA_VERSION} not detected."
+    JAVA_VERSION_OUTPUT=$(java -version 2>&1)
+    log "java -version output: ${JAVA_VERSION_OUTPUT}"
+    if ! echo "$JAVA_VERSION_OUTPUT" | grep -q "1${JAVA_VERSION}\." && ! echo "$JAVA_VERSION_OUTPUT" | grep -q "${JAVA_VERSION}\."; then
+        log "ERROR: Java ${JAVA_VERSION} not detected. Ensure the correct version is active."
+        log "Run 'update-alternatives --config java' to select Java ${JAVA_VERSION}."
         exit 1
     fi
 
     # Verify JAVA_HOME
     if [ ! -d "$JAVA_HOME" ]; then
-        log "ERROR: JAVA_HOME directory ${JAVA_HOME} does not exist."
-        exit 1
+        log "WARNING: JAVA_HOME directory ${JAVA_HOME} does not exist."
+        log "Attempting to find Java ${JAVA_VERSION} installation..."
+        JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))
+        if [ ! -d "$JAVA_HOME" ]; then
+            log "ERROR: Could not locate JAVA_HOME for Java ${JAVA_VERSION}."
+            exit 1
+        fi
+        log "Using JAVA_HOME: ${JAVA_HOME}"
     fi
 
     # Create tomcat user
