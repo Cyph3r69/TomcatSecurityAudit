@@ -146,10 +146,7 @@ for user in users:
     elif re.match(r"^[a-f0-9]{128}$", password.lower()):
         password_type = "Hashed_SHA512"
     elif re.match(r"^[a-f0-9]{32}:[a-f0-9]{16}$", password.lower()):
-        # Check if SecretKeyCredentialHandler with PBKDF2 is used
-        if credential_handler is not None and \
-           credential_handler.get("className") == "org.apache.catalina.realm.SecretKeyCredentialHandler" and \
-           credential_handler.get("algorithm") == "PBKDF2WithHmacSHA512":
+        if credential_handler is not None and credential_handler.get("className") == "org.apache.catalina.realm.SecretKeyCredentialHandler":
             password_type = "Salted_PBKDF2"
         else:
             password_type = "Salted_MD5"
