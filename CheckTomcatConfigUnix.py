@@ -1,4 +1,3 @@
-```python
 #!/usr/bin/env python3
 # CheckTomcatConfigUnix.py
 # Audits Apache Tomcat configuration for security issues
@@ -259,4 +258,3 @@ for user in users:
 
 write_log(f"Overall Configuration: {'Secure' if is_secure else 'Insecure'}")
 write_log("Audit completed")
-```
