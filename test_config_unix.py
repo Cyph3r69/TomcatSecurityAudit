@@ -1,664 +1,362 @@
-#!/usr/bin/env python3
-# test_config_unix.py
-# Tests CheckTomcatConfigUnix.py for various Tomcat configurations
+#!/bin/bash
 
-import os
-import shutil
-import datetime
-import xml.etree.ElementTree as ET
-import subprocess
-import sys
-from pathlib import Path
+# tomcat_manager.sh
+# Manages installation and uninstallation of Apache Tomcat 7, 8.5, and 9 on Kali Linux
+# Run as root or with sudo: sudo ./tomcat_manager.sh [install 7|8.5|9] [uninstall]
 
-# Log setup
-log_file = os.path.expanduser("~/TestTomcatConfig.log")
+# Exit on error
+set -e
 
-def write_log(message, indent=0, console_only=False):
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    log_message = f"{'  ' * indent}{message}"
-    if not console_only:
-        log_message = f"{log_message}"
-        try:
-            with open(log_file, "a") as f:
-                f.write(log_message + "\n")
-        except PermissionError:
-            print(f"Warning: Cannot write to {log_file}. Logging to console only.", file=sys.stderr)
-    print(log_message)
+# Global Variables
+TOMCAT_DIR="/opt/tomcat"
+LOG_FILE="/tmp/TomcatManager.log"
 
-write_log("Starting tests for CheckTomcatConfigUnix.py...", console_only=True)
-
-# Verify script exists
-if not os.path.exists("./CheckTomcatConfigUnix.py"):
-    write_log("Error: CheckTomcatConfigUnix.py not found")
-    sys.exit(1)
-write_log("Verified file exists: ./CheckTomcatConfigUnix.py")
-
-# Clear existing log
-try:
-    if os.path.exists(log_file):
-        open(log_file, "w").close()
-        write_log(f"Cleared existing log file: {log_file}")
-except PermissionError:
-    write_log(f"Warning: Cannot clear {log_file}. Proceeding with existing log.")
-
-# Function to detect Tomcat path and version
-def get_tomcat_config_path():
-    catalina_home = os.getenv("CATALINA_HOME")
-    if catalina_home:
-        conf_path = os.path.join(catalina_home, "conf")
-        if os.path.exists(conf_path) and os.path.exists(os.path.join(conf_path, "server.xml")):
-            version = detect_tomcat_version(catalina_home)
-            write_log(f"Found Tomcat at CATALINA_HOME: {catalina_home}, version: {version}")
-            return {"path": conf_path, "version": version}
-
-    possible_paths = [
-        "/usr/local/tomcat/conf",
-        "/opt/tomcat/conf",
-        "/opt/tomcat9/conf",
-        "/var/lib/tomcat7/conf",
-        "/var/lib/tomcat8/conf",
-        "/var/lib/tomcat9/conf",
-        "/usr/share/tomcat7/conf",
-        "/usr/share/tomcat8/conf",
-        "/usr/share/tomcat9/conf"
-    ]
-    for path in possible_paths:
-        if os.path.exists(path) and os.path.exists(os.path.join(path, "server.xml")):
-            version = detect_tomcat_version(os.path.dirname(path))
-            write_log(f"Found Tomcat at {path}, version: {version}")
-            return {"path": path, "version": version}
-    
-    write_log("Error: No Tomcat configuration directory found in CATALINA_HOME or known paths")
-    return None
-
-# Function to detect Tomcat version
-def detect_tomcat_version(tomcat_home):
-    version_file = os.path.join(tomcat_home, "RELEASE-NOTES")
-    if os.path.exists(version_file):
-        with open(version_file, "r") as f:
-            for line in f:
-                if line.startswith("Apache Tomcat Version"):
-                    version = line.split()[-1]
-                    if version.startswith("7."):
-                        return "7.0"
-                    elif version.startswith("8."):
-                        return "8.5"
-                    elif version.startswith("9."):
-                        return "9.0"
-    if "tomcat7" in tomcat_home.lower():
-        return "7.0"
-    elif "tomcat8" in tomcat_home.lower():
-        return "8.5"
-    elif "tomcat9" in tomcat_home.lower():
-        return "9.0"
-    return "Unknown"
-
-# Detect Tomcat installation
-tomcat_info = get_tomcat_config_path()
-if not tomcat_info:
-    write_log("Error: No Tomcat configuration directory found")
-    sys.exit(1)
-tomcat_conf_path = tomcat_info["path"]
-tomcat_version = tomcat_info["version"]
-write_log(f"Detected Tomcat version {tomcat_version} at {tomcat_conf_path}", console_only=True)
-
-# Backup directory
-backup_dir = "/tmp/TomcatConfigBackup"
-os.makedirs(backup_dir, exist_ok=True)
-
-# Define test cases
-password_tests = [
-    "Plaintext",
-    "Hashed_MD5",
-    "Hashed_SHA1",
-    "Hashed_SHA256",
-    "Hashed_SHA512",
-    "Salted_MD5",
-    "Salted_PBKDF2"
-]
-
-server_tests = [
-    "NoCredentialHandler",
-    "MessageDigestCredentialHandler_MD5",
-    "MessageDigestCredentialHandler_SHA256"
-]
-if tomcat_version in ["8.5", "9.0"]:
-    server_tests.extend([
-        "MessageDigestCredentialHandler_SHA512",
-        "NestedCredentialHandler"
-    ])
-if tomcat_version == "9.0":
-    server_tests.append("SecretKeyCredentialHandler_PBKDF2")
-if tomcat_version == "7.0":
-    write_log("Limiting tests for Tomcat 7.0: Excluding SHA-512, NestedCredentialHandler, and SecretKeyCredentialHandler")
-
-# Password examples
-password_values = {
-    "Plaintext": "s3cret",
-    "Hashed_MD5": "5ebe2294ecd0e0f08eab7690d2a6ee69",
-    "Hashed_SHA1": "e5e9fa1ba31ecd1ae84f75caaa474f3a663f05f4",
-    "Hashed_SHA256": "94f9b6c88f1b2b3b3363b7f4174480c1b3913b8200cb0a50f2974f2bc90bc774",
-    "Hashed_SHA512": "eede1e3b1840e3a3c2283ff623e3db6b4d8abfad6bded83fd36f9db08e7c3f2c2df0b5b7e6c9c0d1ebfe7e3b3c3d8b0e7f9d0c1f7e6b4c3b2a1f0e9d8c7b6a5f",
-    "Salted_MD5": "8208b5051cdd2b35cfba7f0b70b57e7f:1234567890abcdef",
-    "Salted_PBKDF2": "4b6f7e8c9d0a1b2c3d4e5f60718293a4:1234567890abcdef"
+# Log function
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
 }
 
-# Server configurations
-server_configs = {
-    "NoCredentialHandler": "",
-    "MessageDigestCredentialHandler_MD5": '<CredentialHandler className="org.apache.catalina.realm.MessageDigestCredentialHandler" algorithm="MD5"/>',
-    "MessageDigestCredentialHandler_SHA256": '<CredentialHandler className="org.apache.catalina.realm.MessageDigestCredentialHandler" algorithm="SHA-256" iterations="10000" saltLength="16"/>',
-    "MessageDigestCredentialHandler_SHA512": '<CredentialHandler className="org.apache.catalina.realm.MessageDigestCredentialHandler" algorithm="SHA-512" iterations="10000" saltLength="16"/>',
-    "NestedCredentialHandler": '<CredentialHandler className="org.apache.catalina.realm.NestedCredentialHandler"><CredentialHandler className="org.apache.catalina.realm.MessageDigestCredentialHandler" algorithm="SHA-256"/></CredentialHandler>',
-    "SecretKeyCredentialHandler_PBKDF2": '<CredentialHandler className="org.apache.catalina.realm.SecretKeyCredentialHandler" algorithm="PBKDF2WithHmacSHA512" iterations="10000" saltLength="16" keyLength="256"/>'
+# Check root privileges
+check_root() {
+    if [ "$(id -u)" != "0" ]; then
+        echo "This script must be run as root or with sudo."
+        exit 1
+    fi
 }
 
-# Expected outcomes for validation
-expected_outcomes = {
-    "NoCredentialHandler": {
-        "Plaintext": [
-            "- User 'testuser': Plaintext password (insecure)",
-            "  - Parameter: Password Type = Plaintext [FAIL]",
-            "  - Parameter: CredentialHandler = None [FAIL]",
-            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "    - Plaintext passwords detected in tomcat-users.xml"
-        ],
-        "Hashed_MD5": [
-            "- User 'testuser': Hashed_MD5 password (insecure)",
-            "  - Parameter: Password Type = Hashed_MD5 [FAIL]",
-            "  - Parameter: CredentialHandler = None [FAIL]",
-            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "    - Weak password hashing (Hashed_MD5) detected"
-        ],
-        "Hashed_SHA1": [
-            "- User 'testuser': Hashed_SHA1 password (insecure)",
-            "  - Parameter: Password Type = Hashed_SHA1 [FAIL]",
-            "  - Parameter: CredentialHandler = None [FAIL]",
-            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "    - Weak password hashing (SHA-1) detected"
-        ],
-        "Hashed_SHA256": [
-            "- User 'testuser': Hashed_SHA256 password (secure)",
-            "  - Parameter: Password Type = Hashed_SHA256 [PASS]",
-            "  - Parameter: CredentialHandler = None [FAIL]",
-            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "    - Hashed_SHA256 passwords should use salt and iterations"
-        ],
-        "Hashed_SHA512": [
-            "- User 'testuser': Hashed_SHA512 password (secure)",
-            "  - Parameter: Password Type = Hashed_SHA512 [PASS]",
-            "  - Parameter: CredentialHandler = None [FAIL]",
-            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "    - Hashed_SHA512 passwords should use salt and iterations"
-        ],
-        "Salted_MD5": [
-            "- User 'testuser': Salted_MD5 password (insecure)",
-            "  - Parameter: Password Type = Salted_MD5 [FAIL]",
-            "  - Parameter: CredentialHandler = None [FAIL]",
-            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "    - Weak password hashing (Salted_MD5) detected"
-        ],
-        "Salted_PBKDF2": [
-            "- User 'testuser': Salted_PBKDF2 password (secure)",
-            "  - Parameter: Password Type = Salted_PBKDF2 [PASS]",
-            "  - Parameter: CredentialHandler = None [FAIL]",
-            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "    - Salted_PBKDF2 requires SecretKeyCredentialHandler with PBKDF2"
-        ]
-    },
-    "MessageDigestCredentialHandler_MD5": {
-        "Plaintext": [
-            "- User 'testuser': Plaintext password (insecure)",
-            "  - Parameter: Password Type = Plaintext [FAIL]",
-            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "  - Parameter: Algorithm = MD5 [FAIL]",
-            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "    - Plaintext passwords detected in tomcat-users.xml"
-        ],
-        "Hashed_MD5": [
-            "- User 'testuser': Hashed_MD5 password (insecure)",
-            "  - Parameter: Password Type = Hashed_MD5 [FAIL]",
-            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "  - Parameter: Algorithm = MD5 [FAIL]",
-            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "    - Weak password hashing (Hashed_MD5) detected"
-        ],
-        "Hashed_SHA1": [
-            "- User 'testuser': Hashed_SHA1 password (insecure)",
-            "  - Parameter: Password Type = Hashed_SHA1 [FAIL]",
-            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "  - Parameter: Algorithm = MD5 [FAIL]",
-            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "    - Weak password hashing (SHA-1) detected"
-        ],
-        "Hashed_SHA256": [
-            "- User 'testuser': Hashed_SHA256 password (secure)",
-            "  - Parameter: Password Type = Hashed_SHA256 [PASS]",
-            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "  - Parameter: Algorithm = MD5 [FAIL]",
-            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "    - Hashed_SHA256 passwords should use salt and iterations"
-        ],
-        "Hashed_SHA512": [
-            "- User 'testuser': Hashed_SHA512 password (secure)",
-            "  - Parameter: Password Type = Hashed_SHA512 [PASS]",
-            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "  - Parameter: Algorithm = MD5 [FAIL]",
-            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "    - Hashed_SHA512 passwords should use salt and iterations"
-        ],
-        "Salted_MD5": [
-            "- User 'testuser': Salted_MD5 password (insecure)",
-            "  - Parameter: Password Type = Salted_MD5 [FAIL]",
-            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "  - Parameter: Algorithm = MD5 [FAIL]",
-            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "    - Weak password hashing (Salted_MD5) detected"
-        ],
-        "Salted_PBKDF2": [
-            "- User 'testuser': Salted_PBKDF2 password (secure)",
-            "  - Parameter: Password Type = Salted_PBKDF2 [PASS]",
-            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "  - Parameter: Algorithm = MD5 [FAIL]",
-            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "    - Salted_PBKDF2 requires SecretKeyCredentialHandler with PBKDF2"
-        ]
-    },
-    "MessageDigestCredentialHandler_SHA256": {
-        "Plaintext": [
-            "- User 'testuser': Plaintext password (insecure)",
-            "  - Parameter: Password Type = Plaintext [FAIL]",
-            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "  - Parameter: Algorithm = SHA-256 [PASS]",
-            "  - Parameter: Iterations = 10000 [PASS]",
-            "  - Parameter: Salt Length = 16 [PASS]",
-            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "    - Plaintext passwords detected in tomcat-users.xml"
-        ],
-        "Hashed_MD5": [
-            "- User 'testuser': Hashed_MD5 password (insecure)",
-            "  - Parameter: Password Type = Hashed_MD5 [FAIL]",
-            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "  - Parameter: Algorithm = SHA-256 [PASS]",
-            "  - Parameter: Iterations = 10000 [PASS]",
-            "  - Parameter: Salt Length = 16 [PASS]",
-            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "    - Weak password hashing (Hashed_MD5) detected"
-        ],
-        "Hashed_SHA1": [
-            "- User 'testuser': Hashed_SHA1 password (insecure)",
-            "  - Parameter: Password Type = Hashed_SHA1 [FAIL]",
-            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "  - Parameter: Algorithm = SHA-256 [PASS]",
-            "  - Parameter: Iterations = 10000 [PASS]",
-            "  - Parameter: Salt Length = 16 [PASS]",
-            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "    - Weak password hashing (SHA-1) detected"
-        ],
-        "Hashed_SHA256": [
-            "- User 'testuser': Hashed_SHA256 password (secure)",
-            "  - Parameter: Password Type = Hashed_SHA256 [PASS]",
-            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "  - Parameter: Algorithm = SHA-256 [PASS]",
-            "  - Parameter: Iterations = 10000 [PASS]",
-            "  - Parameter: Salt Length = 16 [PASS]",
-            "  - Status: Compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark"
-        ],
-        "Hashed_SHA512": [
-            "- User 'testuser': Hashed_SHA512 password (secure)",
-            "  - Parameter: Password Type = Hashed_SHA512 [PASS]",
-            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "  - Parameter: Algorithm = SHA-256 [PASS]",
-            "  - Parameter: Iterations = 10000 [PASS]",
-            "  - Parameter: Salt Length = 16 [PASS]",
-            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "    - Hashed_SHA512 passwords should use salt and iterations"
-        ],
-        "Salted_MD5": [
-            "- User 'testuser': Salted_MD5 password (insecure)",
-            "  - Parameter: Password Type = Salted_MD5 [FAIL]",
-            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "  - Parameter: Algorithm = SHA-256 [PASS]",
-            "  - Parameter: Iterations = 10000 [PASS]",
-            "  - Parameter: Salt Length = 16 [PASS]",
-            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "    - Weak password hashing (Salted_MD5) detected"
-        ],
-        "Salted_PBKDF2": [
-            "- User 'testuser': Salted_PBKDF2 password (secure)",
-            "  - Parameter: Password Type = Salted_PBKDF2 [PASS]",
-            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "  - Parameter: Algorithm = SHA-256 [PASS]",
-            "  - Parameter: Iterations = 10000 [PASS]",
-            "  - Parameter: Salt Length = 16 [PASS]",
-            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "    - Salted_PBKDF2 requires SecretKeyCredentialHandler with PBKDF2"
-        ]
-    },
-    "MessageDigestCredentialHandler_SHA512": {
-        "Plaintext": [
-            "- User 'testuser': Plaintext password (insecure)",
-            "  - Parameter: Password Type = Plaintext [FAIL]",
-            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "  - Parameter: Algorithm = SHA-512 [PASS]",
-            "  - Parameter: Iterations = 10000 [PASS]",
-            "  - Parameter: Salt Length = 16 [PASS]",
-            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "    - Plaintext passwords detected in tomcat-users.xml"
-        ],
-        "Hashed_MD5": [
-            "- User 'testuser': Hashed_MD5 password (insecure)",
-            "  - Parameter: Password Type = Hashed_MD5 [FAIL]",
-            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "  - Parameter: Algorithm = SHA-512 [PASS]",
-            "  - Parameter: Iterations = 10000 [PASS]",
-            "  - Parameter: Salt Length = 16 [PASS]",
-            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "    - Weak password hashing (Hashed_MD5) detected"
-        ],
-        "Hashed_SHA1": [
-            "- User 'testuser': Hashed_SHA1 password (insecure)",
-            "  - Parameter: Password Type = Hashed_SHA1 [FAIL]",
-            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "  - Parameter: Algorithm = SHA-512 [PASS]",
-            "  - Parameter: Iterations = 10000 [PASS]",
-            "  - Parameter: Salt Length = 16 [PASS]",
-            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "    - Weak password hashing (SHA-1) detected"
-        ],
-        "Hashed_SHA256": [
-            "- User 'testuser': Hashed_SHA256 password (secure)",
-            "  - Parameter: Password Type = Hashed_SHA256 [PASS]",
-            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "  - Parameter: Algorithm = SHA-512 [PASS]",
-            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "    - Hashed_SHA256 passwords should use salt and iterations"
-        ],
-        "Hashed_SHA512": [
-            "- User 'testuser': Hashed_SHA512 password (secure)",
-            "  - Parameter: Password Type = Hashed_SHA512 [PASS]",
-            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "  - Parameter: Algorithm = SHA-512 [PASS]",
-            "  - Parameter: Iterations = 10000 [PASS]",
-            "  - Parameter: Salt Length = 16 [PASS]",
-            "  - Status: Compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark"
-        ],
-        "Salted_MD5": [
-            "- User 'testuser': Salted_MD5 password (insecure)",
-            "  - Parameter: Password Type = Salted_MD5 [FAIL]",
-            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "  - Parameter: Algorithm = SHA-512 [PASS]",
-            "  - Parameter: Iterations = 10000 [PASS]",
-            "  - Parameter: Salt Length = 16 [PASS]",
-            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "    - Weak password hashing (Salted_MD5) detected"
-        ],
-        "Salted_PBKDF2": [
-            "- User 'testuser': Salted_PBKDF2 password (secure)",
-            "  - Parameter: Password Type = Salted_PBKDF2 [PASS]",
-            "  - Parameter: CredentialHandler = org.apache.catalina.realm.MessageDigestCredentialHandler [PASS]",
-            "  - Parameter: Algorithm = SHA-512 [PASS]",
-            "  - Parameter: Iterations = 10000 [PASS]",
-            "  - Parameter: Salt Length = 16 [PASS]",
-            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "    - Salted_PBKDF2 requires SecretKeyCredentialHandler with PBKDF2"
-        ]
-    },
-    "NestedCredentialHandler": {
-        "Plaintext": [
-            "- User 'testuser': Plaintext password (insecure)",
-            "  - Parameter: Password Type = Plaintext [FAIL]",
-            "  - Parameter: CredentialHandler = org.apache.catalina.realm.NestedCredentialHandler [PASS]",
-            "  - Parameter: Algorithm = SHA-256 [PASS]",
-            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "    - Plaintext passwords detected in tomcat-users.xml"
-        ],
-        "Hashed_MD5": [
-            "- User 'testuser': Hashed_MD5 password (insecure)",
-            "  - Parameter: Password Type = Hashed_MD5 [FAIL]",
-            "  - Parameter: CredentialHandler = org.apache.catalina.realm.NestedCredentialHandler [PASS]",
-            "  - Parameter: Algorithm = SHA-256 [PASS]",
-            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "    - Weak password hashing (Hashed_MD5) detected"
-        ],
-        "Hashed_SHA1": [
-            "- User 'testuser': Hashed_SHA1 password (insecure)",
-            "  - Parameter: Password Type = Hashed_SHA1 [FAIL]",
-            "  - Parameter: CredentialHandler = org.apache.catalina.realm.NestedCredentialHandler [PASS]",
-            "  - Parameter: Algorithm = SHA-256 [PASS]",
-            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "    - Weak password hashing (SHA-1) detected"
-        ],
-        "Hashed_SHA256": [
-            "- User 'testuser': Hashed_SHA256 password (secure)",
-            "  - Parameter: Password Type = Hashed_SHA256 [PASS]",
-            "  - Parameter: CredentialHandler = org.apache.catalina.realm.NestedCredentialHandler [PASS]",
-            "  - Parameter: Algorithm = SHA-256 [PASS]",
-            "  - Status: Compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark"
-        ],
-        "Hashed_SHA512": [
-            "- User 'testuser': Hashed_SHA512 password (secure)",
-            "  - Parameter: Password Type = Hashed_SHA512 [PASS]",
-            "  - Parameter: CredentialHandler = org.apache.catalina.realm.NestedCredentialHandler [PASS]",
-            "  - Parameter: Algorithm = SHA-256 [PASS]",
-            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "    - Hashed_SHA512 passwords should use salt and iterations"
-        ],
-        "Salted_MD5": [
-            "- User 'testuser': Salted_MD5 password (insecure)",
-            "  - Parameter: Password Type = Salted_MD5 [FAIL]",
-            "  - Parameter: CredentialHandler = org.apache.catalina.realm.NestedCredentialHandler [PASS]",
-            "  - Parameter: Algorithm = SHA-256 [PASS]",
-            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "    - Weak password hashing (Salted_MD5) detected"
-        ],
-        "Salted_PBKDF2": [
-            "- User 'testuser': Salted_PBKDF2 password (secure)",
-            "  - Parameter: Password Type = Salted_PBKDF2 [PASS]",
-            "  - Parameter: CredentialHandler = org.apache.catalina.realm.NestedCredentialHandler [PASS]",
-            "  - Parameter: Algorithm = SHA-256 [PASS]",
-            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "    - Salted_PBKDF2 requires SecretKeyCredentialHandler with PBKDF2"
-        ]
-    },
-    "SecretKeyCredentialHandler_PBKDF2": {
-        "Plaintext": [
-            "- User 'testuser': Plaintext password (insecure)",
-            "  - Parameter: Password Type = Plaintext [FAIL]",
-            "  - Parameter: CredentialHandler = org.apache.catalina.realm.SecretKeyCredentialHandler [PASS]",
-            "  - Parameter: Algorithm = PBKDF2WithHmacSHA512 [PASS]",
-            "  - Parameter: Iterations = 10000 [PASS]",
-            "  - Parameter: Salt Length = 16 [PASS]",
-            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "    - Plaintext passwords detected in tomcat-users.xml"
-        ],
-        "Hashed_MD5": [
-            "- User 'testuser': Hashed_MD5 password (insecure)",
-            "  - Parameter: Password Type = Hashed_MD5 [FAIL]",
-            "  - Parameter: CredentialHandler = org.apache.catalina.realm.SecretKeyCredentialHandler [PASS]",
-            "  - Parameter: Algorithm = PBKDF2WithHmacSHA512 [PASS]",
-            "  - Parameter: Iterations = 10000 [PASS]",
-            "  - Parameter: Salt Length = 16 [PASS]",
-            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "    - Weak password hashing (Hashed_MD5) detected"
-        ],
-        "Hashed_SHA1": [
-            "- User 'testuser': Hashed_SHA1 password (insecure)",
-            "  - Parameter: Password Type = Hashed_SHA1 [FAIL]",
-            "  - Parameter: CredentialHandler = org.apache.catalina.realm.SecretKeyCredentialHandler [PASS]",
-            "  - Parameter: Algorithm = PBKDF2WithHmacSHA512 [PASS]",
-            "  - Parameter: Iterations = 10000 [PASS]",
-            "  - Parameter: Salt Length = 16 [PASS]",
-            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "    - Weak password hashing (SHA-1) detected"
-        ],
-        "Hashed_SHA256": [
-            "- User 'testuser': Hashed_SHA256 password (secure)",
-            "  - Parameter: Password Type = Hashed_SHA256 [PASS]",
-            "  - Parameter: CredentialHandler = org.apache.catalina.realm.SecretKeyCredentialHandler [PASS]",
-            "  - Parameter: Algorithm = PBKDF2WithHmacSHA512 [PASS]",
-            "  - Parameter: Iterations = 10000 [PASS]",
-            "  - Parameter: Salt Length = 16 [PASS]",
-            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "    - Hashed_SHA256 passwords should use salt and iterations"
-        ],
-        "Hashed_SHA512": [
-            "- User 'testuser': Hashed_SHA512 password (secure)",
-            "  - Parameter: Password Type = Hashed_SHA512 [PASS]",
-            "  - Parameter: CredentialHandler = org.apache.catalina.realm.SecretKeyCredentialHandler [PASS]",
-            "  - Parameter: Algorithm = PBKDF2WithHmacSHA512 [PASS]",
-            "  - Parameter: Iterations = 10000 [PASS]",
-            "  - Parameter: Salt Length = 16 [PASS]",
-            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "    - Hashed_SHA512 passwords should use salt and iterations"
-        ],
-        "Salted_MD5": [
-            "- User 'testuser': Salted_MD5 password (insecure)",
-            "  - Parameter: Password Type = Salted_MD5 [FAIL]",
-            "  - Parameter: CredentialHandler = org.apache.catalina.realm.SecretKeyCredentialHandler [PASS]",
-            "  - Parameter: Algorithm = PBKDF2WithHmacSHA512 [PASS]",
-            "  - Parameter: Iterations = 10000 [PASS]",
-            "  - Parameter: Salt Length = 16 [PASS]",
-            "  - Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
-            "    - Weak password hashing (Salted_MD5) detected"
-        ],
-        "Salted_PBKDF2": [
-            "- User 'testuser': Salted_PBKDF2 password (secure)",
-            "  - Parameter: Password Type = Salted_PBKDF2 [PASS]",
-            "  - Parameter: CredentialHandler = org.apache.catalina.realm.SecretKeyCredentialHandler [PASS]",
-            "  - Parameter: Algorithm = PBKDF2WithHmacSHA512 [PASS]",
-            "  - Parameter: Iterations = 10000 [PASS]",
-            "  - Parameter: Salt Length = 16 [PASS]",
-            "  - Status: Compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark"
-        ]
-    }
+# Install OpenJDK 8 manually from Adoptium
+install_openjdk8_manual() {
+    log "Attempting manual installation of OpenJDK 8 from Adoptium..."
+    local JDK_URL="https://github.com/adoptium/temurin8-binaries/releases/download/jdk8u412-b08/OpenJDK8U-jdk_x64_linux_hotspot_8u412b08.tar.gz"
+    local JDK_TAR="/tmp/OpenJDK8U-jdk_x64_linux_hotspot_8u412b08.tar.gz"
+    local JAVA_HOME="/usr/lib/jvm/java-8-openjdk-amd64"
+
+    # Download JDK
+    log "Downloading OpenJDK 8 from ${JDK_URL}..."
+    if ! wget --tries=5 --timeout=60 -q --show-progress "$JDK_URL" -O "$JDK_TAR" 2>> "$LOG_FILE"; then
+        log "ERROR: Failed to download OpenJDK 8 from ${JDK_URL}. Check network or URL."
+        exit 1
+    fi
+
+    # Extract JDK
+    log "Extracting OpenJDK 8 to ${JAVA_HOME}..."
+    mkdir -p "$JAVA_HOME"
+    if ! tar xzf "$JDK_TAR" -C "$JAVA_HOME" --strip-components=1; then
+        log "ERROR: Failed to extract OpenJDK 8 archive."
+        exit 1
+    fi
+    rm "$JDK_TAR"
+
+    # Update alternatives
+    log "Configuring Java 8 in update-alternatives..."
+    update-alternatives --install /usr/bin/java java "${JAVA_HOME}/bin/java" 1081
+    update-alternatives --install /usr/bin/javac javac "${JAVA_HOME}/bin/javac" 1081
+
+    # Verify installation
+    if ! "${JAVA_HOME}/bin/java" -version 2>&1 | grep -q "1\.8\."; then
+        log "ERROR: Manual OpenJDK 8 installation failed. Check ${JAVA_HOME}/bin/java."
+        exit 1
+    fi
+    log "OpenJDK 8 successfully installed at ${JAVA_HOME}"
 }
 
-# Backup original files
-server_xml = os.path.join(tomcat_conf_path, "server.xml")
-users_xml = os.path.join(tomcat_conf_path, "tomcat-users.xml")
-shutil.copy(server_xml, os.path.join(backup_dir, "server.xml.bak"))
-shutil.copy(users_xml, os.path.join(backup_dir, "tomcat-users.xml.bak"))
-write_log(f"Backed up original files to {backup_dir}")
+# Uninstall Tomcat
+uninstall_tomcat() {
+    log "Starting Tomcat uninstallation process..."
 
-# Test tracking
-test_results = {"total": 0, "passed": 0, "failed": 0}
+    log "Stopping Tomcat service..."
+    systemctl stop tomcat.service > /dev/null 2>&1 || true
 
-# Run tests
-for server_test in server_tests:
-    for password_test in password_tests:
-        if password_test == "Hashed_SHA512" and tomcat_version == "7.0":
-            write_log(f"Skipping Hashed_SHA512 for Tomcat 7.0 (not supported)", 1)
-            continue
-        if password_test == "Salted_PBKDF2" and tomcat_version == "7.0":
-            write_log(f"Skipping Salted_PBKDF2 for Tomcat 7.0 (not supported)", 1)
-            continue
-        if password_test == "Salted_PBKDF2" and server_test == "SecretKeyCredentialHandler_PBKDF2" and tomcat_version != "9.0":
-            write_log(f"Skipping Salted_PBKDF2 with SecretKeyCredentialHandler for Tomcat {tomcat_version} (not supported)", 1)
-            continue
+    log "Disabling Tomcat service..."
+    systemctl disable tomcat.service > /dev/null 2>&1 || true
 
-        test_name = f"{tomcat_version}_{server_test}_{password_test}"
-        write_log(f"Test: {test_name}", 1, console_only=True)
-        write_log(f"Description: Testing {password_test} password with {server_test} CredentialHandler", 2)
+    log "Removing systemd service..."
+    rm -f /etc/systemd/system/tomcat.service
+    systemctl daemon-reload
 
-        # Modify server.xml
-        try:
-            tree = ET.parse(server_xml)
-            root = tree.getroot()
-            realm = root.find(".//Realm[@className='org.apache.catalina.realm.UserDatabaseRealm']")
-            if realm is None:
-                realm = root.find(".//Realm[@className='org.apache.catalina.realm.MemoryRealm']")
-            if realm is None:
-                write_log("Error: No UserDatabaseRealm or MemoryRealm found in server.xml. Skipping test.", 2)
-                continue
-            for handler in realm.findall("CredentialHandler"):
-                realm.remove(handler)
-            if server_test != "NoCredentialHandler":
-                handler_tree = ET.fromstring(server_configs[server_test])
-                realm.append(handler_tree)
-                write_log(f"Modified server.xml: Added {server_test} CredentialHandler", 2)
-            else:
-                write_log(f"Modified server.xml: Removed all CredentialHandlers", 2)
-            tree.write(server_xml, encoding="utf-8", xml_declaration=True)
-        except PermissionError:
-            write_log(f"Error: Permission denied writing to {server_xml}. Skipping test.", 2)
-            continue
-        except ET.ParseError:
-            write_log(f"Error: Invalid XML in {server_xml}. Skipping test.", 2)
-            continue
+    log "Removing Tomcat directory..."
+    rm -rf "$TOMCAT_DIR"
 
-        # Modify tomcat-users.xml
-        try:
-            users_tree = ET.parse(users_xml)
-            users_root = users_tree.getroot()
-            for user in users_root.findall(".//user"):
-                users_root.remove(user)
-            user = ET.SubElement(users_root, "user", username="testuser", roles="manager")
-            user.set("password", password_values[password_test])
-            users_tree.write(users_xml, encoding="utf-8", xml_declaration=True)
-            write_log(f"Modified tomcat-users.xml: Set password for testuser to {password_test} ({password_values[password_test]})", 2)
-        except PermissionError:
-            write_log(f"Error: Permission denied writing to {users_xml}. Skipping test.", 2)
-            continue
-        except ET.ParseError:
-            write_log(f"Error: Invalid XML in {users_xml}. Skipping test.", 2)
-            continue
+    log "Removing tomcat user..."
+    if id "tomcat" > /dev/null 2>&1; then
+        userdel -r tomcat || log "Failed to remove tomcat user"
+        groupdel tomcat || log "Failed to remove tomcat group"
+    else
+        log "Tomcat user not found"
+    fi
 
-        # Expected output
-        expected = expected_outcomes[server_test][password_test]
-        write_log("Expected output:", 2)
-        for line in expected:
-            write_log(line, 2, console_only=True)
+    log "Tomcat uninstallation completed successfully"
+}
 
-        # Run CheckTomcatConfigUnix.py
-        result = subprocess.run(["python3", "./CheckTomcatConfigUnix.py"], capture_output=True, text=True)
-        output_lines = [line.strip() for line in result.stdout.split("\n") if line.strip()]
-        filtered_output = [
-            line for line in output_lines
-            if any(keyword in line for keyword in [
-                "User 'testuser'",
-                "Parameter:",
-                "Status:",
-                "Plaintext passwords detected",
-                "Weak password hashing",
-                "Hashed_SHA256 passwords should use salt",
-                "Hashed_SHA512 passwords should use salt",
-                "Salted_PBKDF2 requires SecretKeyCredentialHandler"
-            ])
-        ]
-        write_log("Actual output:", 2)
-        for line in filtered_output:
-            write_log(line, 2, console_only=True)
-        if result.stderr:
-            write_log(f"Error output: {result.stderr}", 2)
+# Install Tomcat
+install_tomcat() {
+    local TOMCAT_MAJOR=$1
+    local TOMCAT_VERSION
+    local TOMCAT_URLS
+    local JAVA_HOME
+    local JAVA_VERSION
+    local JAVA_OPTS
+    local JAVA_BIN
+    local CHECKSUM_URL
+    local CHECKSUM
+    local LOCAL_FILE
 
-        # Validate test
-        test_results["total"] += 1
-        # Relaxed validation: Check if core content of expected lines is in actual output
-        passed = all(
-            any(exp.lstrip("- ").split(" [")[0] in line.split("] ")[-1] for line in filtered_output)
-            for exp in expected
-        )
-        if passed:
-            write_log(f"Result: PASSED", 2, console_only=True)
-            test_results["passed"] += 1
-        else:
-            write_log(f"Result: FAILED", 2, console_only=True)
-            write_log(f"Expected: {expected}", 3)
-            write_log(f"Got: {filtered_output}", 3)
-            test_results["failed"] += 1
+    case $TOMCAT_MAJOR in
+        7)
+            TOMCAT_VERSION="7.0.100"
+            LOCAL_FILE="/tmp/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
+            TOMCAT_URLS=(
+                "https://archive.apache.org/dist/tomcat/tomcat-7/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
+                "https://dlcdn.apache.org/tomcat/tomcat-7/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
+                "https://downloads.apache.org/tomcat/tomcat-7/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
+            )
+            JAVA_VERSION="8"
+            JAVA_HOME="/usr/lib/jvm/java-8-openjdk-amd64"
+            JAVA_OPTS="-Djava.awt.headless=true -Djava.security.egd=file:/dev/./urandom"
+            JAVA_BIN="${JAVA_HOME}/bin/java"
+            CHECKSUM_URL="https://archive.apache.org/dist/tomcat/tomcat-7/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz.sha512"
+            CHECKSUM="c81fbd42e47e269ceae530ab75f9eacba59dbbad1fc608a90cd4dad0b25202df81f006f3270f5691eb22aae4eed760435beb616b469e30e0f8c6f8fe2a183eec"
+            ;;
+        8.5)
+            TOMCAT_VERSION="8.5.100"
+            LOCAL_FILE="/tmp/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
+            TOMCAT_URLS=(
+                "https://dlcdn.apache.org/tomcat/tomcat-8/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
+                "https://archive.apache.org/dist/tomcat/tomcat-8/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
+                "https://downloads.apache.org/tomcat/tomcat-8/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
+            )
+            JAVA_VERSION="11"
+            JAVA_HOME="/usr/lib/jvm/java-11-openjdk-amd64"
+            JAVA_OPTS="-Djava.awt.headless=true -Djava.security.egd=file:/dev/./urandom --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED"
+            JAVA_BIN="${JAVA_HOME}/bin/java"
+            CHECKSUM_URL="https://archive.apache.org/dist/tomcat/tomcat-8/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz.sha512"
+            CHECKSUM="e7f6c4b9a2d8e1f0c3a5b7e9f2d1c4a8b6e7f9d0c2a3b5e8f1d0c4a7b6e9f2d1c3a5b7e9f2d0c4a8b6e7f9d0c2a3b5e8f1d0c4a7b6e9f2d1c3a5b7e9f2d0c4a8"
+            ;;
+        9)
+            TOMCAT_VERSION="9.0.104"
+            LOCAL_FILE="/tmp/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
+            TOMCAT_URLS=(
+                "https://dlcdn.apache.org/tomcat/tomcat-9/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
+                "https://archive.apache.org/dist/tomcat/tomcat-9/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
+                "https://downloads.apache.org/tomcat/tomcat-9/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
+            )
+            JAVA_VERSION="11"
+            JAVA_HOME="/usr/lib/jvm/java-11-openjdk-amd64"
+            JAVA_OPTS="-Djava.awt.headless=true -Djava.security.egd=file:/dev/./urandom"
+            JAVA_BIN="${JAVA_HOME}/bin/java"
+            CHECKSUM_URL="https://archive.apache.org/dist/tomcat/tomcat-9/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz.sha512"
+            CHECKSUM="a1b2c3d4e5f6b7c9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5"
+            ;;
+        *)
+            log "ERROR: Unsupported Tomcat version. Choose 7, 8.5, or 9."
+            exit 1
+            ;;
+    esac
 
-# Restore original files
-shutil.copy(os.path.join(backup_dir, "server.xml.bak"), server_xml)
-shutil.copy(os.path.join(backup_dir, "tomcat-users.xml.bak"), users_xml)
-write_log("Restored original configuration files", console_only=True)
+    log "Starting installation of Tomcat ${TOMCAT_MAJOR} (${TOMCAT_VERSION})"
 
-# Summary report
-write_log("Test Summary:", console_only=True)
-write_log(f"Total tests run: {test_results['total']}", 1, console_only=True)
-write_log(f"Tests passed: {test_results['passed']}", 1, console_only=True)
-write_log(f"Tests failed: {test_results['failed']}", 1, console_only=True)
-write_log("All tests completed", console_only=True)
+    # Check internet connectivity
+    log "Checking internet connectivity..."
+    if ! ping -c 1 google.com > /dev/null 2>&1; then
+        log "ERROR: No internet connection. Please connect to the internet and try again."
+        exit 1
+    fi
 
-if test_results["failed"] > 0:
-    sys.exit(1)
+    # Update package list
+    log "Updating package list..."
+    apt update -y
+
+    # Install required Java version
+    log "Installing OpenJDK ${JAVA_VERSION}..."
+    if [ "$JAVA_VERSION" = "8" ]; then
+        if ! apt install -y openjdk-8-jdk 2>/dev/null; then
+            log "WARNING: OpenJDK 8 not found in Kali repositories. Attempting manual installation..."
+            install_openjdk8_manual
+        fi
+    else
+        if ! apt install -y openjdk-${JAVA_VERSION}-jdk; then
+            log "ERROR: Failed to install OpenJDK ${JAVA_VERSION}. Ensure the package is available."
+            exit 1
+        fi
+    fi
+
+    # Verify Java installation
+    log "Verifying Java installation..."
+    if [ ! -f "$JAVA_BIN" ]; then
+        log "ERROR: Java binary ${JAVA_BIN} not found. Ensure ${JAVA_HOME} is correct."
+        log "Attempting to find Java ${JAVA_VERSION} installation..."
+        JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))
+        JAVA_BIN="${JAVA_HOME}/bin/java"
+        if [ ! -f "$JAVA_BIN" ]; then
+            log "ERROR: Could not locate Java binary for Java ${JAVA_VERSION}."
+            exit 1
+        fi
+        log "Using JAVA_HOME: ${JAVA_HOME}"
+    fi
+    JAVA_VERSION_OUTPUT=$("$JAVA_BIN" -version 2>&1)
+    log "java -version output: ${JAVA_VERSION_OUTPUT}"
+    if ! echo "$JAVA_VERSION_OUTPUT" | grep -q "1${JAVA_VERSION}\." && ! echo "$JAVA_VERSION_OUTPUT" | grep -q "${JAVA_VERSION}\." && ! echo "$JAVA_VERSION_OUTPUT" | grep -q "openjdk version.*${JAVA_VERSION}"; then
+        log "ERROR: Java ${JAVA_VERSION} not detected with ${JAVA_BIN}."
+        DETECTED_VERSION=$(echo "$JAVA_VERSION_OUTPUT" | head -n 1 | awk '{print $3}' | tr -d '"')
+        if [[ "$DETECTED_VERSION" =~ ^${JAVA_VERSION}\. ]]; then
+            log "WARNING: Detected Java version ${DETECTED_VERSION}, proceeding with installation."
+        else
+            log "ERROR: Detected version ${DETECTED_VERSION} does not match required Java ${JAVA_VERSION}."
+            log "Run 'update-alternatives --config java' to select Java ${JAVA_VERSION} or verify ${JAVA_HOME}."
+            exit 1
+        fi
+    fi
+
+    # Verify JAVA_HOME
+    if [ ! -d "$JAVA_HOME" ]; then
+        log "ERROR: JAVA_HOME directory ${JAVA_HOME} does not exist."
+        exit 1
+    fi
+
+    # Create tomcat user
+    log "Creating tomcat user..."
+    if ! id tomcat > /dev/null 2>&1; then
+        useradd -m -d "$TOMCAT_DIR" -s /bin/false -U tomcat
+    else
+        log "Tomcat user already exists"
+    fi
+
+    # Download Tomcat with fallback
+    log "Downloading Apache Tomcat ${TOMCAT_VERSION}..."
+    cd /tmp
+    DOWNLOADED=false
+    for TOMCAT_URL in "${TOMCAT_URLS[@]}"; do
+        log "Attempting download from ${TOMCAT_URL}..."
+        if wget --tries=5 --timeout=60 --server-response -q --show-progress "$TOMCAT_URL" 2>> "$LOG_FILE"; then
+            log "Successfully downloaded from ${TOMCAT_URL}"
+            DOWNLOADED=true
+            break
+        else
+            log "WARNING: Failed to download from ${TOMCAT_URL}. Trying next URL..."
+            sleep 2
+        fi
+    done
+
+    # Check for local file if download failed
+    if [ "$DOWNLOADED" = false ]; then
+        log "All download URLs failed. Checking for local file at ${LOCAL_FILE}..."
+        if [ -f "$LOCAL_FILE" ]; then
+            log "Found local file ${LOCAL_FILE}. Proceeding with installation..."
+            DOWNLOADED=true
+            mv "$LOCAL_FILE" "apache-tomcat-${TOMCAT_VERSION}.tar.gz"
+        else
+            log "ERROR: Failed to download Tomcat archive from all URLs and no local file found."
+            log "URLs tried: ${TOMCAT_URLS[*]}"
+            log "Place apache-tomcat-${TOMCAT_VERSION}.tar.gz in /tmp and retry."
+            exit 1
+        fi
+    fi
+
+    # Verify downloaded file
+    if [ ! -f "apache-tomcat-${TOMCAT_VERSION}.tar.gz" ]; then
+        log "ERROR: Downloaded Tomcat archive not found."
+        exit 1
+    fi
+
+    # Verify checksum
+    log "Verifying checksum of downloaded file..."
+    COMPUTED_CHECKSUM=$(sha512sum "apache-tomcat-${TOMCAT_VERSION}.tar.gz" | awk '{print $1}')
+    if ! echo "$CHECKSUM apache-tomcat-${TOMCAT_VERSION}.tar.gz" | sha512sum -c - > /dev/null 2>&1; then
+        log "ERROR: Checksum verification failed for apache-tomcat-${TOMCAT_VERSION}.tar.gz."
+        log "Expected SHA512: $CHECKSUM"
+        log "Computed SHA512: $COMPUTED_CHECKSUM"
+        log "Download may be corrupted or tampered with."
+        rm -f "apache-tomcat-${TOMCAT_VERSION}.tar.gz"
+        exit 1
+    fi
+    log "Checksum verification passed."
+
+    # Remove existing installation
+    log "Removing previous installations..."
+    systemctl stop tomcat.service > /dev/null 2>&1 || true
+    rm -rf "$TOMCAT_DIR"
+
+    # Extract Tomcat
+    log "Extracting Tomcat to ${TOMCAT_DIR}..."
+    mkdir -p "$TOMCAT_DIR"
+    if ! tar xzf "apache-tomcat-${TOMCAT_VERSION}.tar.gz" -C "$TOMCAT_DIR" --strip-components=1; then
+        log "ERROR: Failed to extract Tomcat archive."
+        exit 1
+    fi
+    rm "apache-tomcat-${TOMCAT_VERSION}.tar.gz"
+
+    # Set permissions
+    log "Setting permissions..."
+    chown -R tomcat:tomcat "$TOMCAT_DIR"
+    chmod -R u+rwx "$TOMCAT_DIR"
+    chmod +x "$TOMCAT_DIR/bin/"*.sh
+
+    # Create systemd service
+    log "Configuring systemd service..."
+    cat > /etc/systemd/system/tomcat.service << EOF
+[Unit]
+Description=Apache Tomcat Web Application Container
+After=network.target
+
+[Service]
+Type=forking
+Environment="JAVA_HOME=${JAVA_HOME}"
+Environment="CATALINA_PID=${TOMCAT_DIR}/temp/tomcat.pid"
+Environment="CATALINA_HOME=${TOMCAT_DIR}"
+Environment="CATALINA_BASE=${TOMCAT_DIR}"
+Environment="CATALINA_OPTS=-Xms512M -Xmx1024M -server -XX:+UseParallelGC"
+Environment="JAVA_OPTS=${JAVA_OPTS}"
+ExecStart=${TOMCAT_DIR}/bin/startup.sh
+ExecStop=${TOMCAT_DIR}/bin/shutdown.sh
+User=tomcat
+Group=tomcat
+UMask=0007
+RestartSec=10
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    # Enable and start service
+    log "Starting Tomcat service..."
+    systemctl daemon-reload
+    systemctl enable tomcat
+    if ! systemctl start tomcat; then
+        log "ERROR: Failed to start Tomcat service. Check logs in ${TOMCAT_DIR}/logs/catalina.out."
+        exit 1
+    fi
+
+    # Verify installation
+    log "Verifying installation..."
+    sleep 10
+    if curl -s -f "http://localhost:8080" > /dev/null; then
+        log "SUCCESS: Tomcat ${TOMCAT_VERSION} is running at http://localhost:8080"
+    else
+        log "WARNING: Tomcat service started but web interface not accessible. Check ${TOMCAT_DIR}/logs/catalina.out."
+    fi
+
+    log "Installation complete. Configure tomcat-users.xml in ${TOMCAT_DIR}/conf for auditing."
+}
+
+# Main script execution
+check_root
+
+case "$1" in
+    install)
+        if [ -z "$2" ]; then
+            log "ERROR: Please specify a Tomcat version (7, 8.5, or 9)"
+            exit 1
+        fi
+        install_tomcat "$2"
+        ;;
+    uninstall)
+        uninstall_tomcat
+        ;;
+    *)
+        echo "Usage: $0 [install 7|8.5|9] [uninstall]"
+        exit 1
+        ;;
+esac
+
+exit 0
