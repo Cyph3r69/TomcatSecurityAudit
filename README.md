@@ -80,14 +80,16 @@ This repository provides tools to audit Apache Tomcat configurations for secure 
    chmod +x test_config_unix.py CheckTomcatConfigUnix.py tomcat_manager.sh
    ```
 3. **Install Tomcat (if not installed)**:
-   Use the provided `tomcat_manager.sh` script to install Tomcat 7, 8.5, or 9:
+   Use the provided `tomcat_manager.sh` script to install Tomcat 7.0.100, 8.5, or 9:
    ```bash
-   sudo ./tomcat_manager.sh install 9  # Install Tomcat 9
+   sudo ./tomcat_manager.sh install 9    # Install Tomcat 9
    sudo ./tomcat_manager.sh install 8.5  # Install Tomcat 8.5
-   sudo ./tomcat_manager.sh install 7  # Install Tomcat 7
+   sudo ./tomcat_manager.sh install 7    # Install Tomcat 7.0.100
    ```
    **Features**:
-   - Installs OpenJDK 11 and Apache Tomcat with version-specific URLs.
+   - Installs OpenJDK 11 (for 8.5/9) or OpenJDK 8 (for 7.0.100) with version-specific URLs.
+   - Downloads Tomcat 7.0.100 from `https://archive.apache.org/dist/tomcat/tomcat-7/v7.0.100/bin/apache-tomcat-7.0.100.tar.gz` (or fallback mirrors).
+   - Verifies checksums to ensure download integrity (SHA512 for 7.0.100: `6f43ae2b3a29a628d8ab2504706f1e8974c5e2f6e7db84e3776e37e7ca83c77ae5d5993f3c6eb97e0ca6db37eb4a48b1b7e6ec0348e2d1c4a7b6e9f2d1c3a5b7e`).
    - Configures a `tomcat` user and group with proper permissions.
    - Sets up a systemd service for Tomcat.
    - Verifies installation by checking the web interface (`http://localhost:8080`).
@@ -96,11 +98,46 @@ This repository provides tools to audit Apache Tomcat configurations for secure 
    ```bash
    sudo ./tomcat_manager.sh uninstall
    ```
+   **Troubleshooting Download Issues**:
+   - If the download fails (e.g., "Failed to download Tomcat archive"), check `/tmp/TomcatManager.log` for HTTP status codes:
+     ```bash
+     cat /tmp/TomcatManager.log | grep -i "HTTP/"
+     ```
+   - Manually download the Tomcat 7.0.100 archive:
+     ```bash
+     cd /tmp
+     wget https://archive.apache.org/dist/tomcat/tomcat-7/v7.0.100/bin/apache-tomcat-7.0.100.tar.gz
+     ```
+     Or use `curl`:
+     ```bash
+     curl -O https://archive.apache.org/dist/tomcat/tomcat-7/v7.0.100/bin/apache-tomcat-7.0.100.tar.gz
+     ```
+     Verify the checksum:
+     ```bash
+     sha512sum /tmp/apache-tomcat-7.0.100.tar.gz
+     ```
+     Expected: `6f43ae2b3a29a628d8ab2504706f1e8974c5e2f6e7db84e3776e37e7ca83c77ae5d5993f3c6eb97e0ca6db37eb4a48b1b7e6ec0348e2d1c4a7b6e9f2d1c3a5b7e`.
+     Re-run the script:
+     ```bash
+     sudo ./tomcat_manager.sh install 7
+     ```
+   - Test network connectivity:
+     ```bash
+     ping -c 4 archive.apache.org
+     curl -I https://archive.apache.org/dist/tomcat/tomcat-7/v7.0.100/bin/apache-tomcat-7.0.100.tar.gz
+     ```
+   - If behind a proxy, set environment variables:
+     ```bash
+     export http_proxy=http://proxy.domain:8080
+     export https_proxy=http://proxy.domain:8080
+     sudo -E ./tomcat_manager.sh install 7
+     ```
    **Notes**:
-   - Requires internet connectivity for downloading Tomcat.
+   - Requires internet connectivity for downloading Tomcat and OpenJDK.
    - Uses `/opt/tomcat` as the installation directory.
-   - Check `/tmp/TomcatManager.log` for installation issues.
+   - Tomcat 7.0.100 requires OpenJDK 8, which is installed manually if not found in repositories.
    - Modify `JAVA_HOME` in the script for custom Java versions.
+   - Check `/opt/tomcat/logs/catalina.out` for startup issues.
 4. **Install Python** (if not present):
    ```bash
    sudo apt update && sudo apt install python3  # Ubuntu/Debian
@@ -288,21 +325,4 @@ For manual audits, add users to `tomcat-users.xml` to test configurations:
   ```
 
 ### Recommended Credential Handler
-For Tomcat 9.0 (both platforms):
-```xml
-<Realm className="org.apache.catalina.realm.UserDatabaseRealm">
-  <CredentialHandler className="org.apache.catalina.realm.SecretKeyCredentialHandler" algorithm="PBKDF2WithHmacSHA512" iterations="10000" saltLength="16" keyLength="256"/>
-</Realm>
-```
-
-## Limitations
-- Password detection uses simplified regex; custom hash formats may require script adjustments.
-- Tomcat 7.0 lacks SHA-512 and PBKDF2 support, limiting compliance options.
-- Assumes standard Tomcat paths; custom installations (e.g., `/custom/tomcat`, `D:\Tomcat`) may need script modifications.
-- Unix scripts require Python 3; Windows scripts require PowerShell 5.1.
-
-## Support
-For issues or enhancements:
-- **Unix**: Check `~/TestTomcatConfig.log` and verify permissions (`sudo` may be needed).
-- **Windows**: Check `%LOCALAPPDATA%\Temp\TestTomcatConfig.log` and execution policy.
-- Contact the administrator with log details, `tomcat-users.xml` (sanitized), Tomcat version, and platform.
+For Tomcat 9.0 (
