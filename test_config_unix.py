@@ -9,7 +9,6 @@ import xml.etree.ElementTree as ET
 import subprocess
 import sys
 from pathlib import Path
-import re
 
 # Log setup
 log_file = os.path.expanduser("~/TestTomcatConfig.log")
@@ -53,6 +52,7 @@ def get_tomcat_config_path():
     possible_paths = [
         "/usr/local/tomcat/conf",
         "/opt/tomcat/conf",
+        "/opt/tomcat9/conf",
         "/var/lib/tomcat7/conf",
         "/var/lib/tomcat8/conf",
         "/var/lib/tomcat9/conf",
@@ -409,7 +409,7 @@ expected_outcomes = {
             "Password Type: Plaintext (insecure)",
             "Parameter: Password Type = Plaintext [FAIL]",
             "Parameter: CredentialHandler = org.apache.catalina.realm.NestedCredentialHandler [PASS]",
-            "Parameter: Algorithm = SHA-256 [PASS]",  # Nested handler uses inner SHA-256
+            "Parameter: Algorithm = SHA-256 [PASS]",
             "Status: Non-compliant with NIST 800-53 IA-5 and CIS Tomcat Benchmark",
             "Plaintext passwords detected in tomcat-users.xml"
         ],
@@ -610,14 +610,14 @@ for server_test in server_tests:
 
         # Run CheckTomcatConfigUnix.py
         result = subprocess.run(["python3", "./CheckTomcatConfigUnix.py"], capture_output=True, text=True)
-        output_lines = [line.strip() for line in result.stdout.split("\n") if line.strip() and not re.match(r"^\[\d{4}-\d{2}-\d{2}", line)]
+        output_lines = [line.strip() for line in result.stdout.split("\n") if line.strip()]
         if result.stderr:
             write_log(f"Error output: {result.stderr}", 2)
         write_log(f"Actual output: {', '.join(output_lines)}", 2)
 
         # Validate test
         test_results["total"] += 1
-        passed = all(exp in result.stdout for exp in expected) and output_lines
+        passed = all(exp in result.stdout for exp in expected)
         if passed:
             write_log(f"Test {test_name}: PASSED", 2)
             test_results["passed"] += 1
