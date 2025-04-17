@@ -9,7 +9,6 @@ set -e
 
 # Global Variables
 TOMCAT_DIR="/opt/tomcat"
-JAVA_HOME="/usr/lib/jvm/java-11-openjdk-amd64"
 LOG_FILE="/tmp/TomcatManager.log"
 
 # Log function
@@ -44,7 +43,7 @@ uninstall_tomcat() {
 
     log "Removing tomcat user..."
     if id "tomcat" > /dev/null 2>&1; then
-        userdel tomcat || log "Failed to remove tomcat user"
+        userdel -r tomcat || log "Failed to remove tomcat user"
         groupdel tomcat || log "Failed to remove tomcat group"
     else
         log "Tomcat user not found"
@@ -58,19 +57,27 @@ install_tomcat() {
     local TOMCAT_MAJOR=$1
     local TOMCAT_VERSION
     local TOMCAT_URL
+    local JAVA_HOME
+    local JAVA_VERSION
 
     case $TOMCAT_MAJOR in
         7)
             TOMCAT_VERSION="7.0.114"
             TOMCAT_URL="https://archive.apache.org/dist/tomcat/tomcat-7/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
+            JAVA_VERSION="8"
+            JAVA_HOME="/usr/lib/jvm/java-8-openjdk-amd64"
             ;;
         8.5)
-            TOMCAT_VERSION="8.5.94"
+            TOMCAT_VERSION="8.5.100"
             TOMCAT_URL="https://dlcdn.apache.org/tomcat/tomcat-8/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
+            JAVA_VERSION="8"
+            JAVA_HOME="/usr/lib/jvm/java-8-openjdk-amd64"
             ;;
         9)
             TOMCAT_VERSION="9.0.104"
             TOMCAT_URL="https://dlcdn.apache.org/tomcat/tomcat-9/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
+            JAVA_VERSION="11"
+            JAVA_HOME="/usr/lib/jvm/java-11-openjdk-amd64"
             ;;
         *)
             log "ERROR: Unsupported Tomcat version. Choose 7, 8.5, or 9."
@@ -91,17 +98,23 @@ install_tomcat() {
     log "Updating package list..."
     apt update -y
 
-    # Install OpenJDK 11
-    log "Installing OpenJDK 11..."
-    if ! apt install -y openjdk-11-jdk; then
-        log "ERROR: Failed to install OpenJDK 11."
+    # Install required Java version
+    log "Installing OpenJDK ${JAVA_VERSION}..."
+    if ! apt install -y openjdk-${JAVA_VERSION}-jdk; then
+        log "ERROR: Failed to install OpenJDK ${JAVA_VERSION}. Ensure the package is available."
         exit 1
     fi
 
     # Verify Java installation
     log "Verifying Java installation..."
-    if ! java -version 2>&1 | grep -q "11\."; then
-        log "ERROR: Java 11 not detected."
+    if ! java -version 2>&1 | grep -q "${JAVA_VERSION}\."; then
+        log "ERROR: Java ${JAVA_VERSION} not detected."
+        exit 1
+    fi
+
+    # Verify JAVA_HOME
+    if [ ! -d "$JAVA_HOME" ]; then
+        log "ERROR: JAVA_HOME directory ${JAVA_HOME} does not exist."
         exit 1
     fi
 
@@ -116,8 +129,14 @@ install_tomcat() {
     # Download Tomcat
     log "Downloading Apache Tomcat ${TOMCAT_VERSION}..."
     cd /tmp
-    if ! wget -q "$TOMCAT_URL"; then
-        log "ERROR: Failed to download Tomcat archive"
+    if ! wget --tries=3 --timeout=30 -q "$TOMCAT_URL"; then
+        log "ERROR: Failed to download Tomcat archive from ${TOMCAT_URL}. Verify the URL and network."
+        exit 1
+    fi
+
+    # Verify downloaded file
+    if [ ! -f "apache-tomcat-${TOMCAT_VERSION}.tar.gz" ]; then
+        log "ERROR: Downloaded Tomcat archive not found."
         exit 1
     fi
 
@@ -129,7 +148,10 @@ install_tomcat() {
     # Extract Tomcat
     log "Extracting Tomcat to ${TOMCAT_DIR}..."
     mkdir -p "$TOMCAT_DIR"
-    tar xzf "apache-tomcat-${TOMCAT_VERSION}.tar.gz" -C "$TOMCAT_DIR" --strip-components=1
+    if ! tar xzf "apache-tomcat-${TOMCAT_VERSION}.tar.gz" -C "$TOMCAT_DIR" --strip-components=1; then
+        log "ERROR: Failed to extract Tomcat archive."
+        exit 1
+    fi
     rm "apache-tomcat-${TOMCAT_VERSION}.tar.gz"
 
     # Set permissions
@@ -169,15 +191,18 @@ EOF
     log "Starting Tomcat service..."
     systemctl daemon-reload
     systemctl enable tomcat
-    systemctl start tomcat
+    if ! systemctl start tomcat; then
+        log "ERROR: Failed to start Tomcat service. Check logs in ${TOMCAT_DIR}/logs/catalina.out."
+        exit 1
+    fi
 
     # Verify installation
     log "Verifying installation..."
-    sleep 5
+    sleep 10
     if curl -s -f "http://localhost:8080" > /dev/null; then
         log "SUCCESS: Tomcat ${TOMCAT_VERSION} is running at http://localhost:8080"
     else
-        log "WARNING: Tomcat service started but web interface not accessible"
+        log "WARNING: Tomcat service started but web interface not accessible. Check ${TOMCAT_DIR}/logs/catalina.out."
     fi
 
     log "Installation complete. Configure tomcat-users.xml in ${TOMCAT_DIR}/conf for auditing."
