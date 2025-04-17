@@ -1,4 +1,3 @@
-```bash
 #!/bin/bash
 
 # tomcat_manager.sh
@@ -265,4 +264,3 @@ case "$1" in
 esac
 
 exit 0
-```
